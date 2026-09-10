@@ -123,6 +123,32 @@ def close_db():
             _conn = None
 
 
+def _table_columns(conn: duckdb.DuckDBPyConnection, table: str) -> set[str]:
+    """Return the set of column names currently present on ``table``.
+
+    Used to decide migrations without relying on exception types — a failed
+    ``ALTER`` can leave the DuckDB transaction in an aborted state, which then
+    kills every subsequent statement in the same connection.
+    """
+    try:
+        rows = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
+    except Exception:
+        return set()
+    return {r[1] for r in rows}
+
+
+def _add_missing_columns(
+    conn: duckdb.DuckDBPyConnection, table: str, columns: list[tuple[str, str]]
+) -> None:
+    """Add only the columns that don't already exist on ``table``."""
+    existing = _table_columns(conn, table)
+    for col, default in columns:
+        if col in existing:
+            continue
+        conn.execute(f'ALTER TABLE "{table}" ADD COLUMN {col} {default}')
+        existing.add(col)
+
+
 def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("""
         CREATE TABLE IF NOT EXISTS sites (
@@ -134,12 +160,6 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("""
         INSERT OR IGNORE INTO sites VALUES (1, 'GGPoker', 'GG')
     """)
-    conn.execute("INSERT OR IGNORE INTO sites VALUES (2, 'PokerStars', 'PS')")
-    conn.execute("INSERT OR IGNORE INTO sites VALUES (3, '888poker', '888')")
-    conn.execute("INSERT OR IGNORE INTO sites VALUES (4, 'WPN', 'WPN')")
-    conn.execute("INSERT OR IGNORE INTO sites VALUES (5, 'Winamax', 'WMX')")
-    conn.execute("INSERT OR IGNORE INTO sites VALUES (6, 'iPoker', 'IP')")
-    conn.execute("INSERT OR IGNORE INTO sites VALUES (7, 'partypoker', 'PP')")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS players (
             id INTEGER PRIMARY KEY,
@@ -324,17 +344,20 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS hand_tags (
-            hand_id VARCHAR ,
+            hand_id VARCHAR,
+            workspace_id INTEGER NOT NULL DEFAULT 1,
             tag VARCHAR NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (hand_id, tag)
+            PRIMARY KEY (hand_id, workspace_id, tag)
         )
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS hand_notes (
-            hand_id VARCHAR PRIMARY KEY ,
+            hand_id VARCHAR,
+            workspace_id INTEGER NOT NULL DEFAULT 1,
             note TEXT NOT NULL,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (hand_id, workspace_id)
         )
     """)
     conn.execute("""
@@ -358,7 +381,7 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
         """)
 
     # Migrations for existing databases
-    for col, default in [
+    _add_missing_columns(conn, "hand_players", [
         ("all_in_ev_bb", "DECIMAL DEFAULT 0"),
         ("open_raise_opp", "BOOLEAN DEFAULT FALSE"),
         ("flop_checks", "INTEGER DEFAULT 0"),
@@ -395,29 +418,18 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
         ("fold_to_squeeze", "BOOLEAN"),
         ("pot_type", "VARCHAR DEFAULT 'SRP'"),
         ("is_multiway", "BOOLEAN DEFAULT FALSE"),
-    ]:
-        try:
-            conn.execute(f"ALTER TABLE hand_players ADD COLUMN {col} {default}")
-        except duckdb.CatalogException:
-            pass
+    ])
 
     # Migrations for hands table
-    for col, default in [
+    _add_missing_columns(conn, "hands", [
         ("cash_drop_received", "DECIMAL DEFAULT 0"),
         ("game_mode", "VARCHAR DEFAULT ''"),
         ("rit_boards", "INTEGER DEFAULT 1"),
         ("is_cashout", "BOOLEAN DEFAULT FALSE"),
-    ]:
-        try:
-            conn.execute(f"ALTER TABLE hands ADD COLUMN {col} {default}")
-        except duckdb.CatalogException:
-            pass
+    ])
 
     # Migration for board_cards table
-    try:
-        conn.execute("ALTER TABLE board_cards ADD COLUMN board_number INTEGER DEFAULT 1")
-    except duckdb.CatalogException:
-        pass
+    _add_missing_columns(conn, "board_cards", [("board_number", "INTEGER DEFAULT 1")])
 
     # Backfill game_mode: RC* hands → Fast Fold, everything else → ''
     try:
@@ -477,6 +489,10 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
 
     # Add workspace_id to child tables for workspace-scoped JOINs
     _migrate_child_workspace_id(conn)
+
+    # Hand tags/notes need workspace_id in their PK so the same hand can be
+    # tagged/noted independently per workspace. Must run before the dedup fixes.
+    _migrate_tag_note_composite_pk(conn)
 
     # Fix duplicated child rows from incorrect workspace_id backfill
     _fix_child_workspace_duplicates(conn)
@@ -651,10 +667,9 @@ def _migrate_child_workspace_id(conn: duckdb.DuckDBPyConnection) -> None:
     logger.info("Adding workspace_id to child tables...")
 
     for table in ("hand_players", "actions", "board_cards", "hand_tags", "hand_notes"):
-        try:
+        existing = _table_columns(conn, table)
+        if "workspace_id" not in existing:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN workspace_id INTEGER")
-        except duckdb.CatalogException:
-            pass  # column already exists
 
         # Backfill from hands table
         conn.execute(f"""
@@ -668,6 +683,79 @@ def _migrate_child_workspace_id(conn: duckdb.DuckDBPyConnection) -> None:
         "INSERT OR REPLACE INTO settings VALUES ('child_workspace_id', '1')"
     )
     logger.info("Child table workspace_id migration complete.")
+
+
+def _pk_columns(conn: duckdb.DuckDBPyConnection, table: str) -> set[str]:
+    """Return the set of column names that participate in ``table``'s primary key."""
+    try:
+        rows = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
+    except Exception:
+        return set()
+    # PRAGMA table_info: cid, name, type, notnull, dflt_value, pk
+    return {r[1] for r in rows if len(r) > 5 and r[5]}
+
+
+def _migrate_tag_note_composite_pk(conn: duckdb.DuckDBPyConnection) -> None:
+    """Ensure hand_tags / hand_notes primary keys include workspace_id.
+
+    Older databases defined PRIMARY KEY (hand_id, tag) and (hand_id), which
+    makes it impossible to store the same hand's tag/note for two different
+    workspaces — the workspace-dedup migrations then crash on insert. Rebuild
+    the tables with workspace_id in the key.
+    """
+    expected = {
+        "hand_tags": "PRIMARY KEY (hand_id, workspace_id, tag)",
+        "hand_notes": "PRIMARY KEY (hand_id, workspace_id)",
+    }
+
+    for table, pk_clause in expected.items():
+        if not _table_columns(conn, table):
+            continue  # table not created yet
+        if "workspace_id" in _pk_columns(conn, table):
+            continue  # already migrated
+
+        logger.info("Rebuilding %s with workspace-scoped primary key...", table)
+
+        if table == "hand_tags":
+            conn.execute("""
+                CREATE TABLE _hand_tags_new (
+                    hand_id VARCHAR,
+                    workspace_id INTEGER NOT NULL DEFAULT 1,
+                    tag VARCHAR NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (hand_id, workspace_id, tag)
+                )
+            """)
+            conn.execute("""
+                INSERT INTO _hand_tags_new (hand_id, workspace_id, tag, created_at)
+                SELECT hand_id, COALESCE(workspace_id, 1), tag, MIN(created_at)
+                FROM hand_tags
+                GROUP BY hand_id, COALESCE(workspace_id, 1), tag
+            """)
+            conn.execute("DROP TABLE hand_tags")
+            conn.execute("ALTER TABLE _hand_tags_new RENAME TO hand_tags")
+        else:
+            conn.execute("""
+                CREATE TABLE _hand_notes_new (
+                    hand_id VARCHAR,
+                    workspace_id INTEGER NOT NULL DEFAULT 1,
+                    note TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (hand_id, workspace_id)
+                )
+            """)
+            conn.execute("""
+                INSERT INTO _hand_notes_new (hand_id, workspace_id, note, updated_at)
+                SELECT hand_id, COALESCE(workspace_id, 1), note, MIN(updated_at)
+                FROM hand_notes
+                GROUP BY hand_id, COALESCE(workspace_id, 1), note
+            """)
+            conn.execute("DROP TABLE hand_notes")
+            conn.execute("ALTER TABLE _hand_notes_new RENAME TO hand_notes")
+
+    # Re-create indexes that were dropped along with the rebuilt tables.
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_hand_tags_hand_id ON hand_tags(hand_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_hand_tags_tag ON hand_tags(tag)")
 
 
 def _fix_child_workspace_duplicates(conn: duckdb.DuckDBPyConnection) -> None:

@@ -49,3 +49,6 @@ backend/*.spec
 # Env
 .env
 .env.local
+
+# Local AI assistant workspace
+.workbuddy/

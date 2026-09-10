@@ -4,6 +4,8 @@
 
 A local poker hand history tracker (like Hand2Note / HoldemManager) for GGPoker Rush & Cash. Parses hand history .txt files, stores in DuckDB, computes H2N-style stats, shows graphs.
 
+> **Fork note:** this fork is **GGPoker-only**. The PokerStars / 888 / WPN / Winamax / iPoker / partypoker parsers and their fixtures were removed to keep the codebase small — only `parsers/ggpoker.py` remains. See `docs/archive/MULTI-SITE-PARSERS-PRD.md` for the original multi-site work (historical).
+
 ## Tech Stack
 
 - **Backend**: Python 3.12+, FastAPI >=0.115, DuckDB >=1.1, Pydantic >=2.0, python-multipart
@@ -26,7 +28,7 @@ Frontend: `cd frontend && npm run dev`
 Electron dev: `make electron-dev` (starts backend + frontend + Electron window)
 Electron build: `make electron-build` (builds .dmg/.exe via PyInstaller + electron-builder)
 Landing page: `make landing` (dev server) or `cd frontend && npm run build:landing` (build to `dist-landing/`)
-Tests: `cd backend && python -m pytest tests/test_parser.py -v`
+Tests: `cd backend && python -m pytest tests/ -v` (GGPoker parser + DB insertion + registry)
 Lint: `cd frontend && npm run lint`
 API docs: http://localhost:4243/docs (FastAPI auto-generated Swagger)
 
@@ -114,7 +116,7 @@ Tables in `backend/app/db.py`: **sites**, **hands** (one per hand, stores `raw_t
 2. **Compute** (`stat_flags.py`): `compute_stat_flags(parsed) → dict[str, dict]` — site-independent flags
 3. **Insert** (`api/import_hands.py`): `insert_parsed_hand(db, parsed)` — calls compute, calculates financials, writes to DB
 
-New site parsers only need to produce `ParsedHand`. Stat bugs can be fixed and re-derived via `/import/rebuild` without re-parsing.
+Stat bugs can be fixed and re-derived via `/import/rebuild` without re-parsing. Adding another site would mean dropping a new module into `parsers/` and registering it in `parsers/__init__.py::PARSERS` (the interface only needs to produce `ParsedHand`).
 
 ## GGPoker Parser
 

@@ -31,7 +31,7 @@ STAT_REGISTRY: dict[str, dict] = {
     "call_open_raise": {
         "name": "Call Open Raise",
         "action_flag": "call_open_raise",
-        "opp_flag": None,
+        "opp_flag": "call_open_raise_opp",
     },
     "three_bet": {
         "name": "3-Bet",
@@ -87,13 +87,15 @@ STAT_REGISTRY: dict[str, dict] = {
     },
     "four_bet_fold": {
         "name": "4-Bet-Fold",
-        "action_sql": "hp.four_bet = TRUE AND hp.saw_flop IS NOT TRUE",
-        "opp_sql": "hp.four_bet = TRUE",
+        # Denominator mirrors stats_engine: hands where the 4-bettor faced a 5-bet
+        "action_sql": "hp.four_bet_fold = TRUE",
+        "opp_sql": "hp.four_bet_fold IS NOT NULL",
     },
     "call_4bet": {
         "name": "Call 4-Bet",
-        "action_sql": "hp.fold_to_4bet = FALSE AND hp.five_bet IS NOT TRUE",
-        "opp_sql": "hp.fold_to_4bet IS NOT NULL",
+        # Denominator mirrors stats_engine: hands where a 5-bet was possible
+        "action_sql": "hp.five_bet_opp = TRUE AND hp.call_4bet = TRUE",
+        "opp_sql": "hp.five_bet_opp = TRUE",
     },
     "four_bet_range": {
         "name": "4-Bet Range",
@@ -332,8 +334,9 @@ STAT_REGISTRY: dict[str, dict] = {
     },
     "wwsf": {
         "name": "Won When Saw Flop",
-        "action_flag": "won",
-        "opp_flag": "saw_flop",
+        # `won` is a $ amount column, not a boolean — mirror stats_engine's won_bb check
+        "action_sql": "hp.saw_flop = TRUE AND CAST(COALESCE(hp.won_bb, 0) AS DOUBLE) > 0",
+        "opp_sql": "hp.saw_flop = TRUE",
     },
 }
 
