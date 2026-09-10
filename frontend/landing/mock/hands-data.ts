@@ -9,7 +9,7 @@ import type {
 const hero = (a: string, v?: number): ActionItem => ({ a, v, h: true });
 const villain = (a: string, v?: number): ActionItem => ({ a, v, h: false });
 
-const mockHands: HandSummary[] = [
+const mockHandsData: Omit<HandSummary, 'rit_boards' | 'is_cashout'>[] = [
   {
     id: 'RC0000000001',
     played_at: '2025-07-15T14:32:00Z',
@@ -232,6 +232,12 @@ const mockHands: HandSummary[] = [
   },
 ];
 
+const mockHands: HandSummary[] = mockHandsData.map((h) => ({
+  ...h,
+  rit_boards: 1,
+  is_cashout: false,
+}));
+
 export const mockHandListResponse: HandListResponse = {
   hands: mockHands,
   total: mockHands.length,
@@ -255,6 +261,9 @@ export const mockHandDetails: Record<string, HandDetail> = {
       { seat: 3, position: 'BB', username: 'Villain2', stack_bb: 120, card1: null, card2: null, won_bb: -19, is_hero: false, player_type: 'NIT' },
     ],
     board: { flop: ['Kd', '7h', '3s'], turn: ['2c'], river: ['Qd'] },
+    extra_boards: [],
+    rit_boards: 1,
+    is_cashout: false,
     actions: [
       { street: 'preflop', player: 'Hero', position: 'BTN', action: 'raise', amount_bb: 2.5, is_all_in: false, is_hero: true },
       { street: 'preflop', player: 'Villain2', position: 'BB', action: 'call', amount_bb: 2.5, is_all_in: false, is_hero: false },
@@ -262,6 +271,7 @@ export const mockHandDetails: Record<string, HandDetail> = {
       { street: 'flop', player: 'Hero', position: 'BTN', action: 'bet', amount_bb: 3.5, is_all_in: false, is_hero: true },
       { street: 'flop', player: 'Villain2', position: 'BB', action: 'call', amount_bb: 3.5, is_all_in: false, is_hero: false },
     ],
+    street_pots: { preflop: 1.5, flop: 5.5, turn: 12.5, river: 28.5 },
     tags: ['bluff-catcher'],
     note: null,
   },

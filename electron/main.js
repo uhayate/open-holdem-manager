@@ -160,7 +160,7 @@ function killBackend() {
 // Windows: electron-updater (full auto-update)
 // macOS: GitHub API checker (manual download until we get Apple signing)
 
-const REPO_OWNER = 'AHTOOOXA';
+const REPO_OWNER = 'uhayate';
 const REPO_NAME = 'open-holdem-manager';
 
 let updateState = { available: null, downloaded: false };

@@ -16,30 +16,39 @@ function StreetSection({
   label,
   actions,
   boardCards,
+  potBb,
 }: {
   label: string;
   actions: HandAction[];
   boardCards: string[];
+  potBb?: number;
 }) {
   return (
     <div className="mb-3">
-      {/* Street header with board cards */}
+      {/* Street header with board cards + pot */}
       <div className="flex items-center gap-3 mb-1.5 pb-1 border-b border-border/30">
         <span className="text-[12px] font-bold uppercase tracking-wider text-text-muted">
           {label}
         </span>
         {boardCards.length > 0 && <CardBoxRow cards={boardCards} />}
+        {potBb !== undefined && (
+          <span className="ml-auto text-[12px] font-mono text-text-muted shrink-0">
+            Pot {potBb.toFixed(1)} BB
+          </span>
+        )}
       </div>
-      {/* Action lines — position badge first, then name, then action */}
+      {/* Action lines — position badge first, then action */}
       {actions.length > 0 ? (
         <div className="space-y-0.5">
           {actions.map((a, i) => (
             <div key={i} className="text-[13px] font-mono leading-relaxed flex items-center gap-1.5">
-              <span className="text-[11px] font-mono font-bold text-text bg-surface-hover rounded px-1.5 py-px shrink-0 min-w-[28px] text-center">
-                {a.position}
-              </span>
-              <span className={`truncate max-w-[100px] ${a.is_hero ? 'text-primary font-semibold' : 'text-text-muted'}`}>
-                {a.player}
+              <span
+                title={a.player || undefined}
+                className={`text-[11px] font-mono font-bold rounded px-1.5 py-px shrink-0 min-w-[34px] text-center ${
+                  a.is_hero ? 'bg-primary/20 text-primary' : 'text-text bg-surface-hover'
+                }`}
+              >
+                {a.position || '—'}
               </span>
               <span className={ACTION_COLORS[a.action] || 'text-text'}>
                 {a.action}
@@ -81,10 +90,12 @@ export default function HandActionsDisplay({
   actions,
   board,
   extraBoards,
+  streetPots,
 }: {
   actions: HandAction[];
   board: BoardCards;
   extraBoards?: BoardCards[];
+  streetPots?: Record<string, number>;
 }) {
   const streets: { key: string; label: string; cards: string[]; reached: boolean }[] = [
     { key: 'preflop', label: 'Preflop', cards: [], reached: true },
@@ -101,6 +112,7 @@ export default function HandActionsDisplay({
           label={s.label}
           actions={actions.filter((a) => a.street === s.key)}
           boardCards={s.cards}
+          potBb={streetPots?.[s.key]}
         />
       ))}
       {extraBoards && extraBoards.map((eb, i) => (

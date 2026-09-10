@@ -240,6 +240,8 @@ class HandDetail(BaseModel):
     rit_boards: int = 1
     is_cashout: bool = False
     actions: list[HandAction] = []
+    # Pot size (in BB) at the moment each street begins, keyed by street name.
+    street_pots: dict[str, float] = {}
     tags: list[str] = []
     note: Optional[str] = None
 

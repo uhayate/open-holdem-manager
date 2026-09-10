@@ -254,7 +254,7 @@ export default function HandDrawer({
                   </div>
 
                   {/* Actions */}
-                  <HandActionsDisplay actions={displayHand!.actions} board={displayHand!.board} extraBoards={displayHand!.extra_boards} />
+                  <HandActionsDisplay actions={displayHand!.actions} board={displayHand!.board} extraBoards={displayHand!.extra_boards} streetPots={displayHand!.street_pots} />
 
                   {/* Result */}
                   <div className={`mt-1 mb-4 text-[14px] font-bold font-mono ${heroWonBb >= 0 ? 'text-green' : 'text-red'}`}>

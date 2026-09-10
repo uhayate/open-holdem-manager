@@ -406,6 +406,8 @@ export interface HandDetail {
   rit_boards: number;
   is_cashout: boolean;
   actions: HandAction[];
+  /** Pot size in BB when each street begins. */
+  street_pots: Record<string, number>;
   tags: string[];
   note: string | null;
 }

@@ -108,7 +108,11 @@ function fromCompact(c: CompactHand): HandDetail {
     raw_text: null,
     players,
     board,
+    extra_boards: [],
+    rit_boards: 1,
+    is_cashout: false,
     actions,
+    street_pots: {},
     tags: [],
     note: null,
   };

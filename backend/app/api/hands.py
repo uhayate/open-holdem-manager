@@ -433,6 +433,9 @@ def get_hand(hand_id: str, workspace_id: int = Query(1)):
         rit_boards=rit_boards,
         is_cashout=is_cashout,
         actions=actions,
+        street_pots={
+            s: float(ss[s]["pot"]) for s in ("preflop", "flop", "turn", "river")
+        },
         tags=tag_list,
         note=note,
     )

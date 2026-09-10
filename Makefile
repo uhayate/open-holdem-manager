@@ -44,7 +44,7 @@ endif
 	git commit -m "v$(v)"
 	git tag "v$(v)"
 	git push origin main "v$(v)"
-	@echo "Release v$(v) triggered. Watch: https://github.com/AHTOOOXA/open-holdem-manager/actions"
+	@echo "Release v$(v) triggered. Watch: https://github.com/uhayate/open-holdem-manager/actions"
 
 landing:
 	cd frontend && npm run dev:landing
