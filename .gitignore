@@ -33,6 +33,7 @@ backend/tests/benchmark_log.jsonl
 
 # Electron / electron-builder
 release/
+release-build/
 *.dmg
 *.exe
 *.AppImage
@@ -42,9 +43,6 @@ backend/dist/
 backend/build/
 backend/*.spec
 *.spec
-
-# Vercel
-.vercel/
 
 # Env
 .env

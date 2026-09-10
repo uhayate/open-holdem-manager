@@ -19,7 +19,15 @@ else:
     DB_PATH = Path(__file__).parent.parent.parent / "data" / "poker.duckdb"
 
 _conn: duckdb.DuckDBPyConnection | None = None
-_lock = threading.Lock()
+# Re-entrant on purpose: import_database() holds db_lock() and then calls
+# close_db()/get_db(), both of which take this same lock. With a plain Lock
+# that re-acquisition deadlocks the calling thread — and since the endpoint is
+# async, it would freeze the whole event loop.
+_lock = threading.RLock()
+# Guards cursor creation on the shared connection. DuckDB connections are not
+# thread-safe, so two request threads must not call _conn.cursor() at the same
+# instant. Held only for the duration of that call.
+_cursor_lock = threading.Lock()
 _request_cursors: contextvars.ContextVar[list | None] = contextvars.ContextVar(
     '_request_cursors', default=None
 )
@@ -50,13 +58,21 @@ def get_db() -> duckdb.DuckDBPyConnection:
 
 
 def get_read_cursor() -> duckdb.DuckDBPyConnection:
-    """Return a new cursor for read-only queries (no lock needed).
+    """Return a cursor for read-only queries.
 
-    DuckDB supports concurrent reads via separate cursors on the same
-    connection, so read-only endpoints can run in parallel.
-    Cursors are tracked per-request and closed by cleanup_request_cursors().
+    Reads deliberately do NOT take _lock: writers hold it (see db_lock()), and
+    a background stat rebuild can hold it for minutes — taking it here would
+    freeze the whole UI while a rebuild runs.
+
+    What is guarded is cursor creation itself: DuckDB connections are not
+    thread-safe, so concurrent calls to _conn.cursor() are serialised with
+    _cursor_lock. The returned cursors are independent and the queries on them
+    run in parallel. Cursors are tracked per-request and closed by
+    cleanup_request_cursors().
     """
-    cursor = get_db().cursor()
+    conn = get_db()
+    with _cursor_lock:
+        cursor = conn.cursor()
     cursors = _request_cursors.get(None)
     if cursors is not None:
         cursors.append(cursor)
@@ -1128,19 +1144,37 @@ def _check_stat_version(conn: duckdb.DuckDBPyConnection) -> None:
     def _bg_rebuild():
         try:
             with _lock:
-                db = get_db()
-                from app.api.import_hands import _run_rebuild_sync
+                # Dedicated connection. The shared _conn is also driven by
+                # request threads through get_read_cursor(), and a single
+                # DuckDB connection must not be used from two threads at once.
+                # DuckDB returns another handle onto the same database here.
+                db = duckdb.connect(str(DB_PATH))
+                try:
+                    db.execute("SET memory_limit = '4GB'")
+                    from app.api.import_hands import _run_rebuild_sync
 
-                def _on_progress(processed: int, total: int):
-                    _rebuild_status["processed"] = processed
-                    _rebuild_status["total"] = total
+                    def _on_progress(processed: int, total: int):
+                        _rebuild_status["processed"] = processed
+                        _rebuild_status["total"] = total
 
-                _run_rebuild_sync(db, on_progress=_on_progress)
+                    _run_rebuild_sync(db, on_progress=_on_progress)
 
-                db.execute(
-                    "INSERT OR REPLACE INTO settings VALUES ('stat_version', ?)",
-                    [str(STAT_VERSION)],
-                )
+                    db.execute(
+                        "INSERT OR REPLACE INTO settings VALUES ('stat_version', ?)",
+                        [str(STAT_VERSION)],
+                    )
+                except Exception:
+                    # _run_rebuild_sync runs inside an explicit transaction.
+                    # Without this, a failure would leave it open — and a
+                    # DuckDB connection with an aborted transaction rejects
+                    # every later statement.
+                    try:
+                        db.execute("ROLLBACK")
+                    except Exception:
+                        logger.warning("Rollback after failed rebuild failed", exc_info=True)
+                    raise
+                finally:
+                    db.close()
                 logger.info("Background rebuild complete, stat_version set to %d", STAT_VERSION)
         except Exception:
             logger.exception("Background rebuild failed")

@@ -1,4 +1,4 @@
-.PHONY: dev backend frontend setup stop electron-dev electron-build release landing
+.PHONY: dev backend frontend setup stop electron-dev electron-build release
 
 setup:
 	cd backend && pip install -r requirements.txt
@@ -45,6 +45,3 @@ endif
 	git tag "v$(v)"
 	git push origin main "v$(v)"
 	@echo "Release v$(v) triggered. Watch: https://github.com/uhayate/open-holdem-manager/actions"
-
-landing:
-	cd frontend && npm run dev:landing

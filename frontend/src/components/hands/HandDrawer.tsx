@@ -7,14 +7,14 @@ import HandReplayer from './replayer/HandReplayer';
 import TagPill from './TagPill';
 import TagPicker from './TagPicker';
 import { formatStakes } from '@/lib/utils';
-import { getShareUrl, anonymizeHand } from '@/lib/hand-codec';
+import { anonymizeHand } from '@/lib/hand-anonymize';
 import PlayerTypeBadge from '@/components/PlayerTypeBadge';
 import { RitBadge, CashoutBadge } from '@/components/hands/HandTypeBadge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Share2, Check, EyeOff, Eye } from 'lucide-react';
+import { EyeOff, Eye } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -63,7 +63,6 @@ export default function HandDrawer({
   const [viewMode, setViewMode] = useState<ViewMode>('visual');
   const [note, setNote] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [anonymized, setAnonymized] = useState(false);
 
   const loadHand = useCallback(async () => {
@@ -117,14 +116,6 @@ export default function HandDrawer({
     }
   };
 
-  const handleShare = async () => {
-    if (!hand) return;
-    const url = getShareUrl(anonymized ? anonymizeHand(hand) : hand);
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const displayHand = hand && anonymized ? anonymizeHand(hand) : hand;
   const hero = displayHand?.players.find((p) => p.is_hero);
   const heroWonBb = hero?.won_bb ?? 0;
@@ -156,15 +147,6 @@ export default function HandDrawer({
                 title={anonymized ? 'Show real names' : 'Anonymize names'}
               >
                 {anonymized ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={handleShare}
-                title="Copy share link"
-              >
-                {copied ? <Check className="h-4 w-4 text-green" /> : <Share2 className="h-4 w-4" />}
               </Button>
               <ToggleGroup
                 type="single"

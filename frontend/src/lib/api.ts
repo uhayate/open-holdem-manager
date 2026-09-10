@@ -247,7 +247,13 @@ export async function uploadFilesStream(
     }
   }
 
-  return finalResult ?? { imported: 0, duplicates: 0, errors: 0, error_details: [] };
+  if (finalResult === null) {
+    // The stream ended without a `done` message, which the backend only emits
+    // after COMMIT and index rebuild succeed. Returning a zeroed result here
+    // would show "import finished" when in fact the import died partway.
+    throw new Error('Import stream ended unexpectedly — the server never reported a result.');
+  }
+  return finalResult;
 }
 
 export async function getHeroStats(params?: {

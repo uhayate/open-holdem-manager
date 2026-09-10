@@ -4,7 +4,7 @@
 
 A local poker hand history tracker (like Hand2Note / HoldemManager) for GGPoker Rush & Cash. Parses hand history .txt files, stores in DuckDB, computes H2N-style stats, shows graphs.
 
-> **Fork note:** this fork is **GGPoker-only**. The PokerStars / 888 / WPN / Winamax / iPoker / partypoker parsers and their fixtures were removed to keep the codebase small — only `parsers/ggpoker.py` remains. See `docs/archive/MULTI-SITE-PARSERS-PRD.md` for the original multi-site work (historical).
+> **Fork note:** this fork is trimmed for personal single-user use. The PokerStars / 888 / WPN / Winamax / iPoker / partypoker parsers and their fixtures were removed — only `parsers/ggpoker.py` remains. The marketing landing site (`frontend/landing/`, `frontend/api/`) and all docs (`docs/`, `ROADMAP.md`, `README.md`) were removed too.
 
 ## Tech Stack
 
@@ -27,7 +27,6 @@ Backend: `cd backend && uvicorn app.main:app --reload --port 4243`
 Frontend: `cd frontend && npm run dev`
 Electron dev: `make electron-dev` (starts backend + frontend + Electron window)
 Electron build: `make electron-build` (builds .dmg/.exe via PyInstaller + electron-builder)
-Landing page: `make landing` (dev server) or `cd frontend && npm run build:landing` (build to `dist-landing/`)
 Tests: `cd backend && python -m pytest tests/ -v` (GGPoker parser + DB insertion + registry)
 Lint: `cd frontend && npm run lint`
 API docs: http://localhost:4243/docs (FastAPI auto-generated Swagger)
@@ -77,8 +76,6 @@ frontend/
     components/ui/       # shadcn/ui primitives
     pages/               # UploadPage, StatsPage, GraphPage, HandsPage
   vite.config.ts         # React, Tailwind v4, API proxy, ELECTRON=1 base path
-  vite.config.landing.ts # Landing page config (root: landing/, output: dist-landing/)
-  landing/               # Static landing site — see Landing Page section
 
 electron/
   main.js                # Spawns backend, finds free port, opens window, auto-updater
@@ -86,22 +83,6 @@ electron/
 
 package.json             # Root — Electron, electron-builder, build scripts
 electron-builder.yml     # Packages .dmg (macOS), .exe/NSIS (Windows), .AppImage (Linux)
-
-docs/
-  vision/                  # Long-lived strategy & architecture
-    PRODUCT-VISION.md      #   "PostHog for Poker" concept, NL query engine, showcase examples
-    EXTENSIBILITY.md       #   Plugin architecture, API layers, security model, plugin ideas
-    MARKET-ANALYSIS.md     #   Market research, competitive analysis, monetization
-  specs/                   # Active implementation specs for unbuilt features
-    REDO-RIT-CASHOUT.md    #   RIT/Cashout rework spec
-    REWORK_SUBSTATS.md     #   Stat detail subpage rework
-    stats-page-redesign.md #   Stats page layout redesign
-    stat-detail-panel.md   #   Per-stat detail panel contents
-    og-image-redesign.md   #   OG image poker table scene
-  archive/                 # Shipped/superseded specs (kept for history)
-    MULTI-SITE-PARSERS-PRD.md  #   Multi-site parsers (DONE — all 7 sites shipped)
-
-ROADMAP.md               # Integrated product + marketing roadmap (references docs/ for details)
 ```
 
 ## Database Schema (DuckDB)
@@ -180,14 +161,3 @@ Bump `STAT_VERSION` in `backend/app/db.py` → on startup, `_check_stat_version(
 ### macOS Code Signing
 
 Not configured. Users must run `xattr -cr /Applications/Open\ Holdem\ Manager.app` after install. To enable: uncomment `identity`/`notarize` in `electron-builder.yml` (requires Apple Developer account).
-
-## Landing Page (ohm.antonchaynik.ru)
-
-Static site in `frontend/landing/` deployed via GitHub Pages (`.github/workflows/landing.yml`). Reuses real app components in `MemoryRouter` with a global fetch interceptor (`mock/api-interceptor.ts`) returning mock data.
-
-### Key Details
-
-- **Separate Vite config**: `vite.config.landing.ts` with `root: landing/`, output to `dist-landing/`
-- **CSS**: `landing/index.css` must have `@source "../src"` — without this, Tailwind v4 doesn't scan `src/` and most utility classes are missing
-- **Fonts**: GeistMono woff2 copied to `landing/public/fonts/` (node_modules paths don't resolve in static deploy)
-- **Deploy**: Auto-deploys on push to `main` when `frontend/landing/**`, `frontend/src/**`, or `vite.config.landing.ts` change

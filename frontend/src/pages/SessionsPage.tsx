@@ -185,9 +185,15 @@ function SessionDetail({ index }: { index: number }) {
   const [handsPage, setHandsPage] = useState(1);
   const [handsPerPage, setHandsPerPage] = useState(50);
 
+  // A malformed URL such as /sessions/abc parses to NaN. Guard the query so we
+  // never request /api/sessions/NaN and then render the empty state, which is
+  // indistinguishable from "this session simply has no hands".
+  const invalidIndex = Number.isNaN(index);
+
   const { data, isPending } = useQuery({
     queryKey: queryKeys.sessions.detail(index),
     queryFn: () => getSessionDetail(index),
+    enabled: !invalidIndex,
   });
 
   const stats = data?.stats;
@@ -231,6 +237,14 @@ function SessionDetail({ index }: { index: number }) {
   const n0 = graph.length;
   const sdRateBB = n0 > 0 ? (sdBB / n0) * 100 : 0;
   const nsdRateBB = n0 > 0 ? (nsdBB / n0) * 100 : 0;
+
+  if (invalidIndex) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <EmptyState variant="no-match" message="This session link is not valid." />
+      </div>
+    );
+  }
 
   if (isPending) {
     return (

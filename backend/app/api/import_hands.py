@@ -880,6 +880,16 @@ def _run_rebuild_sync(db, on_progress: 'Callable[[int, int], None] | None' = Non
         "SELECT id, workspace_id, site_id, raw_text FROM hands ORDER BY played_at ASC, id ASC"
     ).fetchall()
 
+    reset_import_cache()
+
+    db.execute("BEGIN TRANSACTION")
+    db.execute("SET checkpoint_threshold = '10GB'")
+
+    # Everything below stays inside the transaction on purpose. DuckDB
+    # auto-commits any statement issued outside an explicit transaction, so
+    # dropping the indexes and wiping the child tables *before* BEGIN would
+    # make those wipes permanent even if the rebuild fails halfway through —
+    # leaving the app with empty stat tables and no way back.
     _drop_indexes(db)
     db.execute("DELETE FROM player_classifications")
     db.execute("DELETE FROM actions")
@@ -887,10 +897,6 @@ def _run_rebuild_sync(db, on_progress: 'Callable[[int, int], None] | None' = Non
     db.execute("DELETE FROM hand_players")
     # Keep players table intact — player_aliases has FK references, and
     # _batch_resolve_players will look up existing players from the DB.
-    reset_import_cache()
-
-    db.execute("BEGIN TRANSACTION")
-    db.execute("SET checkpoint_threshold = '10GB'")
 
     imported = 0
     errors = 0
@@ -1014,10 +1020,24 @@ async def export_database():
     with db_lock():
         db = get_db()
         db.execute("CHECKPOINT")
-        # Copy to a temp file while we hold the lock
+        # Snapshot through DuckDB rather than copying the file. On Windows the
+        # engine keeps the database file open, so shutil.copy2 fails with
+        # PermissionError (WinError 32) for as long as the app is running.
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".duckdb")
         tmp.close()
-        shutil.copy2(str(DB_PATH), tmp.name)
+        os.unlink(tmp.name)  # let DuckDB create the target file itself
+        dest = str(tmp.name).replace("\\", "/")
+        source_db = db.execute("SELECT current_database()").fetchone()[0]
+        db.execute(f"ATTACH '{dest}' AS ohm_snapshot")
+        try:
+            db.execute(f'COPY FROM DATABASE "{source_db}" TO ohm_snapshot')
+        finally:
+            try:
+                db.execute("DETACH ohm_snapshot")
+            except Exception:
+                logging.getLogger(__name__).warning(
+                    "Could not detach export snapshot", exc_info=True
+                )
 
     from datetime import datetime
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
