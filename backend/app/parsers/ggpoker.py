@@ -9,7 +9,7 @@ import re
 from decimal import Decimal
 from datetime import datetime
 
-from app.parsers.common import ParsedHand, _ZERO, _assign_positions, POSITIONS_BY_COUNT
+from app.parsers.common import ParsedHand, _ZERO, _assign_positions
 
 SITE_ID = 1
 SITE_CODE = "GG"

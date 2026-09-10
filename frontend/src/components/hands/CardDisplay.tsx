@@ -32,20 +32,6 @@ export function CardPair({ card1, card2 }: { card1: string | null; card2: string
   );
 }
 
-export function BoardDisplay({ cards }: { cards: string[] }) {
-  if (!cards || cards.length === 0) return <span className="text-text-muted font-mono">--</span>;
-  return (
-    <span className="font-mono whitespace-nowrap">
-      {cards.map((c, i) => (
-        <span key={i}>
-          {i > 0 && ' '}
-          <SingleCard card={c} />
-        </span>
-      ))}
-    </span>
-  );
-}
-
 // ── H2N-style card boxes (colored background by suit) ───────────────
 
 const SUIT_BG: Record<string, string> = {
@@ -87,17 +73,6 @@ export function CardBoxRow({ cards }: { cards: string[] }) {
       {cards.map((c, i) => (
         <CardBox key={i} card={c} />
       ))}
-    </span>
-  );
-}
-
-export function CardBack() {
-  return (
-    <span
-      className="inline-flex items-center justify-center w-[30px] h-[34px] rounded-[3px] shrink-0 border border-border/60"
-      style={{ backgroundColor: 'oklch(0.22 0.005 260)' }}
-    >
-      <span className="text-[10px] text-text-muted/40 font-bold select-none">?</span>
     </span>
   );
 }

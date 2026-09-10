@@ -100,9 +100,4 @@ export function getStatDisplayName(statKey: string): string {
   return REGISTRY[statKey]?.displayName ?? STAT_DISPLAY_NAMES[statKey] ?? statKey;
 }
 
-/** Get the full registry entry */
-export function getStatEntry(statKey: string): StatRegistryEntry | undefined {
-  return REGISTRY[statKey];
-}
-
 export { REGISTRY as STAT_REGISTRY };

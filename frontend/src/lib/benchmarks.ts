@@ -317,25 +317,6 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
   },
 };
 
-// ── Villain Response Benchmarks ──────────────────────────────────────
-// Population averages for how villains respond to hero's action, by position.
-// Each entry: { [scenarioLabel]: percentage }
-// Used as reference lines on the VillainResponseBar widget.
-
-export interface VillainResponseBenchmark {
-  [label: string]: number;
-}
-
-export const VILLAIN_RESPONSE_BENCHMARKS: Record<string, Record<string, VillainResponseBenchmark>> = {
-  open_raise: {
-    EP:  { 'Fold-through': 70, 'Called': 18, '3-Bet faced': 12 },
-    MP:  { 'Fold-through': 65, 'Called': 23, '3-Bet faced': 12 },
-    CO:  { 'Fold-through': 58, 'Called': 30, '3-Bet faced': 12 },
-    BTN: { 'Fold-through': 52, 'Called': 33, '3-Bet faced': 15 },
-    SB:  { 'Fold-through': 60, 'Called': 20, '3-Bet faced': 20 },
-  },
-};
-
 // ── Health computation ───────────────────────────────────────────────
 
 /**
@@ -397,14 +378,6 @@ export interface Leak {
   handFilterUrl: string;
 }
 
-export interface OnTrackStat {
-  statKey: string;
-  displayName: string;
-  value: number;
-  low: number;
-  high: number;
-}
-
 /** Extract the total StatValue for a stat key from HeroStats */
 function getStatValue(stats: HeroStats, key: string): StatValue | undefined {
   const val = stats[key as keyof HeroStats];
@@ -454,27 +427,4 @@ export function computeLeaks(stats: HeroStats, minSample = 200): Leak[] {
 
   leaks.sort((a, b) => b.impact - a.impact);
   return leaks.slice(0, 5);
-}
-
-export function computeOnTrack(stats: HeroStats, minSample = 200): OnTrackStat[] {
-  const onTrack: OnTrackStat[] = [];
-
-  for (const [key, posBenchmarks] of Object.entries(BENCHMARKS)) {
-    const sv = getStatValue(stats, key);
-    if (!sv || sv.value == null || sv.sample < minSample) continue;
-
-    const benchmark = posBenchmarks.total;
-    const health = getStatHealth(sv.value, benchmark, sv.sample, minSample);
-    if (health.status !== 'green') continue;
-
-    onTrack.push({
-      statKey: key,
-      displayName: STAT_DISPLAY_NAMES[key] || key,
-      value: sv.value,
-      low: benchmark.low,
-      high: benchmark.high,
-    });
-  }
-
-  return onTrack;
 }

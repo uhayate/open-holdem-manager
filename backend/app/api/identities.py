@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from app.db import get_db, db_lock, get_read_cursor
 from app.models import (
     IdentityResponse, CreateIdentity, UpdateIdentity,
