@@ -121,23 +121,28 @@ Player caching (`_player_cache`, `_next_*_id`) lives in `import_hands.py`; call
 cd frontend && ELECTRON=1 npm run build            # -> frontend/dist
 
 # 2. Backend  (NOTE: no --clean; see below)
-cd backend && ../.venv/Scripts/python.exe -m PyInstaller --name ohm-backend \
-  --onedir --noconfirm --collect-submodules uvicorn --collect-submodules fastapi \
-  --collect-submodules starlette --collect-submodules pydantic \
-  --collect-submodules duckdb --hidden-import multipart run_server.py
+cd backend && CODEBUDDY_SAFE_DELETE_ENABLED=0 ../.venv/Scripts/python.exe -m PyInstaller \
+  --name ohm-backend --onedir --noconfirm --collect-submodules uvicorn \
+  --collect-submodules fastapi --collect-submodules starlette \
+  --collect-submodules pydantic --collect-submodules duckdb \
+  --hidden-import multipart run_server.py
 
 # 3. Installer
 cd .. && CODEBUDDY_SAFE_DELETE_ENABLED=0 ./node_modules/.bin/electron-builder.cmd \
   --win --publish never -c.directories.output=release-build
 ```
 
-- **`CODEBUDDY_SAFE_DELETE_ENABLED=0` is required in this sandbox.** It disables
-  the safe-delete shim that otherwise aborts electron-builder mid-cleanup
-  (`SAFE_DELETE_BULK_CONFIRM_REQUIRED`), leaving the installer without
-  `latest.yml`.
-- **Skip PyInstaller's `--clean`.** It triggers a bulk delete that the shim
-  refuses. If you need a clean build, *rename* `build/` and `dist/` aside first
-  — a same-volume rename is atomic and unaffected.
+- **`CODEBUDDY_SAFE_DELETE_ENABLED=0` is required in this sandbox** — prefix it to
+  *both* the PyInstaller and electron-builder steps. It disables the safe-delete
+  shim, which otherwise aborts bulk deletions with
+  `SAFE_DELETE_BULK_CONFIRM_REQUIRED`. Without it:
+  - PyInstaller refuses to remove the previous `dist/ohm-backend` during COLLECT
+    (746 files), so the build ends with a stale/uncollected `dist/`;
+  - electron-builder aborts mid-cleanup, leaving the installer without `latest.yml`.
+- **Still skip PyInstaller's `--clean`.** Even with the shim disabled it is
+  unnecessary (a changed/broken `build/` cache is the only reason to want it) —
+  but if you ever do need a truly clean build, a same-volume *rename* of
+  `build/` and `dist/` is atomic and works regardless.
 - `electron/main.js` pins `REPO_OWNER` to **`uhayate`**. Pointing it back at the
   upstream owner would let auto-update overwrite this fork.
 - macOS builds are unsigned; testers must run `xattr -cr "…/Open Holdem Manager.app"`.

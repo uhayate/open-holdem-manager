@@ -33,7 +33,9 @@ backend/tests/benchmark_log.jsonl
 
 # Electron / electron-builder
 release/
-release-build/
+release-build*/
+release-*/
+
 *.dmg
 *.exe
 *.AppImage
