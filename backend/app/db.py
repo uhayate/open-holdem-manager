@@ -36,12 +36,57 @@ _request_cursors: contextvars.ContextVar[list | None] = contextvars.ContextVar(
 _rebuild_status: dict = {"active": False, "processed": 0, "total": 0}
 
 
+def _wal_path() -> Path:
+    return Path(str(DB_PATH) + ".wal")
+
+
+def _quarantine_bad_wal(exc: BaseException) -> bool:
+    """Move aside an unreplayable WAL so the database can still be opened.
+
+    DuckDB checkpoints and deletes the WAL on a clean shutdown. After an
+    unclean one (killed process, power loss) the WAL can be left mid-write and
+    become *unreplayable*: the next connect() raises an internal assertion
+    instead of an IOException. Without this, every subsequent launch replays
+    the same bad WAL and fails, permanently locking the user out of the app
+    with nothing but "Backend did not start in time".
+
+    Only the WAL is touched, and it is renamed rather than deleted, so the
+    bytes stay available for forensics. Writes that were never committed are
+    lost — but they were unreachable anyway, since the WAL cannot be replayed.
+
+    Returns True only if the error looks like a WAL-replay failure AND the
+    file was actually moved, so the caller can retry exactly once.
+    """
+    message = str(exc)
+    if "replaying WAL file" not in message and "replaying WAL" not in message:
+        return False
+
+    wal = _wal_path()
+    if not wal.exists():
+        return False
+
+    dest = Path(f"{wal}.corrupt-{time.strftime('%Y%m%d-%H%M%S')}")
+    try:
+        wal.rename(dest)
+    except OSError:
+        logger.exception("Could not move the unreplayable WAL aside: %s", wal)
+        return False
+
+    logger.error(
+        "DuckDB could not replay %s (left behind by an unclean shutdown). "
+        "Moved it to %s and continuing without it. Any writes in that WAL "
+        "that were never committed are lost.", wal, dest,
+    )
+    return True
+
+
 def get_db() -> duckdb.DuckDBPyConnection:
     global _conn
     if _conn is None:
         with _lock:
             if _conn is None:
                 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+                wal_quarantined = False
                 for attempt in range(10):
                     try:
                         _conn = duckdb.connect(str(DB_PATH))
@@ -52,6 +97,13 @@ def get_db() -> duckdb.DuckDBPyConnection:
                             time.sleep(1)
                         else:
                             raise
+                    except duckdb.Error as exc:
+                        # WAL replay failures surface as InternalException, not
+                        # IOException, so they are not covered above. Quarantine
+                        # once, then retry immediately.
+                        if wal_quarantined or not _quarantine_bad_wal(exc):
+                            raise
+                        wal_quarantined = True
                 init_schema(_conn)
                 atexit.register(close_db)
     return _conn
