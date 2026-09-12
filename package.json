@@ -7,9 +7,12 @@
   "scripts": {
     "electron:dev": "electron .",
     "clean": "node scripts/clean.mjs",
+    "check:electron": "node scripts/check-electron.mjs",
+    "check:quit": "node scripts/check-quit-path.cjs",
+    "check": "npm run check:electron && npm run check:quit",
     "frontend:build": "cd frontend && npm run build:electron",
     "backend:build": "cd backend && ..\\.venv\\Scripts\\python.exe -m PyInstaller --name ohm-backend --onedir --noconfirm --collect-submodules uvicorn --collect-submodules fastapi --collect-submodules starlette --collect-submodules pydantic --collect-submodules duckdb --hidden-import multipart run_server.py",
-    "build": "npm run clean && npm run frontend:build && npm run backend:build && electron-builder --publish never",
+    "build": "npm run check && npm run clean && npm run frontend:build && npm run backend:build && electron-builder --publish never",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux"

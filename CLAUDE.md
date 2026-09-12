@@ -149,12 +149,13 @@ every time.
 **One command, one output directory:**
 
 ```bash
-npm run build          # clean -> frontend -> backend -> electron-builder
+npm run build          # check -> clean -> frontend -> backend -> electron-builder
 ```
 
 That expands to:
 
 ```bash
+npm run check          # static + functional checks for electron/ (see below)
 npm run clean          # node scripts/clean.mjs — removes release/, backend/dist,
                        # backend/build/, frontend/dist
 cd frontend && npm run build:electron        # -> frontend/dist
@@ -188,3 +189,27 @@ Notes:
   On macOS the venv interpreter is `.venv/bin/python`, not `.venv/Scripts/python.exe`.
 - `electron/main.js` pins `REPO_OWNER` to **`uhayate`**. Pointing it back at the
   upstream owner would let auto-update overwrite this fork.
+
+## Verifying Electron changes (`npm run check`)
+
+The Python test suite cannot see `electron/`, and neither `node --check` nor a
+packaged smoke test exercises the window-close path. So `electron/` has two
+dedicated checks, both wired into `npm run build`:
+
+1. **`npm run check:electron`** (`scripts/check-electron.mjs`) — runs `tsc
+   --allowJs --checkJs --noEmit` over `electron/*.js`. Catches the class of bug
+   that shipped in `db583e7`: a `before-quit` handler that referenced `quitting`,
+   `backendUrl` and `SHUTDOWN_TIMEOUT_MS` without ever declaring them, so the
+   first window close popped *"A JavaScript error occurred in the main process /
+   ReferenceError: quitting is not defined"* and skipped the graceful shutdown
+   entirely. `tsc` reports each as `TS2304: Cannot find name ...`.
+2. **`npm run check:quit`** (`scripts/check-quit-path.cjs`) — loads the real
+   `electron/main.js` with stubbed `electron` / `electron-updater` / `http` /
+   `child_process`, emits `window-all-closed`, and asserts that the app POSTs
+   `/api/shutdown` on the backend URL, does **not** call `child.kill()`, defers
+   `before-quit` exactly once and still ends up quitting. Pass it a path to a
+   different copy of `main.js` to prove the harness really catches a regression.
+
+Neither check replaces closing the window by hand on a packaged build once
+before shipping; they just make the two failure modes that bit us impossible to
+re-introduce silently.

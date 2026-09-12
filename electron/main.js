@@ -14,6 +14,14 @@ const autoUpdater = !isMac ? require('electron-updater').autoUpdater : null;
 
 let backendProcess = null;
 let mainWindow = null;
+// Where the backend is listening (production). Needed to ask it to exit before we
+// quit -- that is what lets DuckDB checkpoint and drop its WAL.
+let backendUrl = null;
+// before-quit guard: the first pass preventDefault()s and stops the backend, the
+// second (once stopBackend has resolved) is allowed to go through.
+let quitting = false;
+
+const SHUTDOWN_TIMEOUT_MS = 15000;
 
 const isDev = !app.isPackaged;
 
@@ -21,7 +29,9 @@ function findFreePort() {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.listen(0, '127.0.0.1', () => {
-      const port = server.address().port;
+      // address() is typed `string | AddressInfo`; for a TCP server it is always
+      // the object form. The cast keeps `npm run check:electron` clean.
+      const port = /** @type {import('net').AddressInfo} */ (server.address()).port;
       server.close(() => resolve(port));
     });
     server.on('error', reject);
@@ -373,7 +383,8 @@ app.whenReady().then(async () => {
       // Production: start backend on a random free port
       const port = await findFreePort();
       await startBackend(port);
-      url = `http://127.0.0.1:${port}`;
+      backendUrl = `http://127.0.0.1:${port}`;
+      url = backendUrl;
       await waitForBackend(url);
     }
 
@@ -404,7 +415,11 @@ app.on('before-quit', (event) => {
   }
   event.preventDefault();
   quitting = true;
-  stopBackend().finally(() => app.quit());
+  // Always reach app.quit() -- a throw or rejection in here must not wedge the
+  // app in a state where the window is gone but the process never exits.
+  stopBackend()
+    .catch((err) => console.error('stopBackend failed:', err))
+    .finally(() => app.quit());
 });
 
 // macOS: re-create window when dock icon clicked
