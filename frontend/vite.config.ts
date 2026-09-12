@@ -6,8 +6,9 @@ import { readFileSync } from 'fs'
 
 const rootPkg = JSON.parse(readFileSync(path.resolve(__dirname, '../package.json'), 'utf-8'))
 
-export default defineConfig({
-  base: process.env.ELECTRON === '1' ? './' : '/',
+export default defineConfig(({ mode }) => ({
+  // Electron needs relative asset paths; `--mode electron` (or ELECTRON=1) sets it.
+  base: process.env.ELECTRON === '1' || mode === 'electron' ? './' : '/',
   define: {
     __APP_VERSION__: JSON.stringify(rootPkg.version),
   },
@@ -22,4 +23,4 @@ export default defineConfig({
       '/api': 'http://localhost:4243',
     },
   },
-})
+}))

@@ -112,37 +112,51 @@ Player caching (`_player_cache`, `_next_*_id`) lives in `import_hands.py`; call
 
 - `OHM_DATA_DIR` — overrides the DuckDB location (Electron points it at `userData/data/`)
 - `OHM_STATIC_DIR` — enables static serving of the built frontend (packaged mode)
-- `ELECTRON=1` — makes Vite emit relative asset paths (`base: './'`) for `file://`
+- `ELECTRON=1` (or `vite build --mode electron`) — makes Vite emit relative asset
+  paths (`base: './'`) for `file://`. `npm run build:electron` uses the mode flag,
+  which works on cmd.exe too (unlike the bare `ELECTRON=1` env prefix).
 
 ## Building the Installer (Windows)
 
-```bash
-# 1. Frontend
-cd frontend && ELECTRON=1 npm run build            # -> frontend/dist
+**One command, one output directory:**
 
-# 2. Backend  (NOTE: no --clean; see below)
-cd backend && CODEBUDDY_SAFE_DELETE_ENABLED=0 ../.venv/Scripts/python.exe -m PyInstaller \
+```bash
+npm run build          # clean -> frontend -> backend -> electron-builder
+```
+
+That expands to:
+
+```bash
+npm run clean          # node scripts/clean.mjs — removes release/, backend/dist,
+                       # backend/build/, frontend/dist
+cd frontend && npm run build:electron        # -> frontend/dist
+cd backend && ../.venv/Scripts/python.exe -m PyInstaller \
   --name ohm-backend --onedir --noconfirm --collect-submodules uvicorn \
   --collect-submodules fastapi --collect-submodules starlette \
   --collect-submodules pydantic --collect-submodules duckdb \
-  --hidden-import multipart run_server.py
-
-# 3. Installer
-cd .. && CODEBUDDY_SAFE_DELETE_ENABLED=0 ./node_modules/.bin/electron-builder.cmd \
-  --win --publish never -c.directories.output=release-build
+  --hidden-import multipart run_server.py    # -> backend/dist/ohm-backend
+electron-builder --publish never             # -> release/Open Holdem Manager-Setup.exe
 ```
 
-- **`CODEBUDDY_SAFE_DELETE_ENABLED=0` is required in this sandbox** — prefix it to
-  *both* the PyInstaller and electron-builder steps. It disables the safe-delete
-  shim, which otherwise aborts bulk deletions with
-  `SAFE_DELETE_BULK_CONFIRM_REQUIRED`. Without it:
-  - PyInstaller refuses to remove the previous `dist/ohm-backend` during COLLECT
-    (746 files), so the build ends with a stale/uncollected `dist/`;
-  - electron-builder aborts mid-cleanup, leaving the installer without `latest.yml`.
-- **Still skip PyInstaller's `--clean`.** Even with the shim disabled it is
-  unnecessary (a changed/broken `build/` cache is the only reason to want it) —
-  but if you ever do need a truly clean build, a same-volume *rename* of
-  `build/` and `dist/` is atomic and works regardless.
+**Output always lands in `release/` and overwrites the previous build.** Never
+pass `-c.directories.output=<something else>` — that is how the tree ended up
+with `release-build/`, `release-build2/`, `release-build3/` littered around.
+`electron-builder.yml` sets `directories.output: release`; leave it alone.
+
+Notes:
+
+- **`CODEBUDDY_SAFE_DELETE_ENABLED=0`** is required *in this sandbox* only. Prefix
+  it to *both* PyInstaller and electron-builder; otherwise the safe-delete shim
+  aborts bulk deletions with `SAFE_DELETE_BULK_CONFIRM_REQUIRED` (PyInstaller
+  can't clear the old `dist/ohm-backend`; electron-builder leaves the installer
+  without `latest.yml`). On a normal machine you don't need it.
+- **Antivirus can lock `release/win-unpacked/resources/app.asar`** after a build.
+  Symptom: the next build fails because it can't delete the old `app.asar`
+  (`ERROR_SHARING_VIOLATION`, err 32) — and this **survives a reboot** if the AV
+  service grabs it at startup. Fix: use the AV's "release file lock" feature
+  (火绒安全 → 解除占用) and delete `release/`. **Do not work around it by changing
+  the output directory.**
+- macOS builds are unsigned; testers must run `xattr -cr "…/Open Holdem Manager.app"`.
+  On macOS the venv interpreter is `.venv/bin/python`, not `.venv/Scripts/python.exe`.
 - `electron/main.js` pins `REPO_OWNER` to **`uhayate`**. Pointing it back at the
   upstream owner would let auto-update overwrite this fork.
-- macOS builds are unsigned; testers must run `xattr -cr "…/Open Holdem Manager.app"`.
