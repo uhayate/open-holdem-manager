@@ -123,6 +123,13 @@ it private and there would be no way to stop the server from a request handler.
 Under plain `uvicorn app.main:app` (dev) that attribute is absent and the
 endpoint returns `{"status": "no-server"}` — nothing to stop.
 
+Any **new long-running write task** (import, rebuild) must poll
+`db.shutdown_requested()` and raise `db.ShutdownInterrupted` as it loops —
+otherwise it holds `db_lock` to completion and `close_db()` blocks past the 15 s
+grace window, forcing a hard kill (i.e. back to a half-written WAL). Existing
+check sites: `_run_rebuild_sync` / `_process_hands` (per hand) and
+`import_files_stream` (per batch); the caller rolls back.
+
 Startup also **self-heals a broken WAL**: `get_db()` catches `duckdb.Error` and,
 if the message mentions replaying the WAL, renames it to
 `<db>.wal.corrupt-<timestamp>` (never deleted) and retries once. Before that,
