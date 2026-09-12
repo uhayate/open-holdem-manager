@@ -180,7 +180,7 @@ function SessionList() {
 // ── Session Detail View ──────────────────────────────────────────────
 
 function SessionDetail({ index }: { index: number }) {
-  const [unit, setUnit] = useState<'bb' | 'usd'>('bb');
+  const [unit, setUnit] = useState<'bb' | 'usd'>('usd');
   const [selectedHandId, setSelectedHandId] = useState<string | null>(null);
   const [handsPage, setHandsPage] = useState(1);
   const [handsPerPage, setHandsPerPage] = useState(50);

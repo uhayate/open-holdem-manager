@@ -199,8 +199,8 @@ export default function GraphPage() {
   });
 
   // Display toggles
-  const [unit, setUnit] = useState<'bb' | 'usd'>('bb');
-  const [lines, setLines] = useState<Set<LineToggle>>(new Set(['ev', 'showdown', 'sessions']));
+  const [unit, setUnit] = useState<'bb' | 'usd'>('usd');
+  const [lines, setLines] = useState<Set<LineToggle>>(new Set(['ev', 'showdown']));
 
   const toggle = (line: LineToggle) => {
     setLines(prev => {
