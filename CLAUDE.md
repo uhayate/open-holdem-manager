@@ -200,6 +200,11 @@ Notes:
   service grabs it at startup. Fix: use the AV's "release file lock" feature
   (火绒安全 → 解除占用) and delete `release/`. **Do not work around it by changing
   the output directory.**
+- **The frontend is not inside `app.asar`.** It ships as `extraResources`, so
+  unpacking the asar only reveals `electron/` and `node_modules/`; the built React
+  bundle is at `release/win-unpacked/resources/frontend/`, and the frozen server at
+  `resources/backend/`. To prove a UI change landed in a given build, `grep` those
+  directories — grepping the asar makes it look like the change is missing.
 - macOS builds are unsigned; testers must run `xattr -cr "…/Open Holdem Manager.app"`.
   On macOS the venv interpreter is `.venv/bin/python`, not `.venv/Scripts/python.exe`.
 - `electron/main.js` pins `REPO_OWNER` to **`uhayate`**. Pointing it back at the
