@@ -136,6 +136,21 @@ if the message mentions replaying the WAL, renames it to
 an unreplayable WAL wedged every launch permanently, since it is replayed
 every time.
 
+To stop a **running** instance without using its window — needed when the build
+in question cannot quit cleanly, and the only safe way to free the database
+lock — find the backend's port and ask it directly:
+
+```bash
+netstat -ano | grep LISTENING | grep <ohm-backend-pid>   # -> 127.0.0.1:<port>
+curl -X POST --noproxy '*' http://127.0.0.1:<port>/api/shutdown
+```
+
+The endpoint ships in every build from `db583e7` on, so this works even against
+an old build whose `before-quit` is broken. The backend exits in about a second,
+checkpoints DuckDB and deletes the WAL; the Electron process then follows.
+**Never `taskkill` the backend** — that is precisely how an unreplayable WAL is
+produced.
+
 ## Environment Variables
 
 - `OHM_DATA_DIR` — overrides the DuckDB location (Electron points it at `userData/data/`)
