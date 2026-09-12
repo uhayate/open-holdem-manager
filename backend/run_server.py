@@ -10,7 +10,13 @@ def main():
     parser.add_argument("--host", type=str, default="127.0.0.1")
     args = parser.parse_args()
 
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    config = uvicorn.Config(app, host=args.host, port=args.port, log_level="info")
+    server = uvicorn.Server(config)
+    # Published so POST /api/shutdown can ask this server to exit on demand.
+    # uvicorn.run() would keep the Server instance to itself, leaving no way to
+    # stop it from inside a request handler.
+    app.state.uvicorn_server = server
+    server.run()
 
 
 if __name__ == "__main__":

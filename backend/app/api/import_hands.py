@@ -2,7 +2,10 @@ from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import StreamingResponse, FileResponse
 from decimal import Decimal
 from app.models import ImportResult
-from app.db import get_db, db_lock, close_db, DB_PATH
+from app.db import (
+    get_db, db_lock, close_db, DB_PATH,
+    shutdown_requested, ShutdownInterrupted,
+)
 from app.parsers.common import ParsedHand, _ZERO
 from app.parsers import detect_parser, PARSER_BY_SITE_ID
 from app.stat_flags import compute_stat_flags
@@ -732,6 +735,30 @@ async def import_files_stream(files: list[UploadFile] = File(...), workspace_id:
     return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
+def _abort_import(db) -> None:
+    """Discard a bulk import that was cut short by a shutdown. Never returns.
+
+    The ROLLBACK is what makes a killed process harmless: with the transaction
+    gone there is nothing left in the WAL worth replaying.
+    """
+    try:
+        db.execute("ROLLBACK")
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Rollback after interrupted import failed", exc_info=True
+        )
+    # The indexes were dropped outside the transaction, so the rollback does
+    # not bring them back. Recreating them here is safe even if we are killed
+    # midway: the transaction is already closed.
+    try:
+        _create_indexes(db)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Could not recreate indexes after interrupted import", exc_info=True
+        )
+    raise ShutdownInterrupted("app is shutting down; import aborted")
+
+
 def _process_hands(db, text_contents: list[str], workspace_id: int = 1) -> ImportResult:
     """Process hands from text contents (non-streaming)."""
     total_imported = 0
@@ -776,6 +803,8 @@ def _process_hands(db, text_contents: list[str], workspace_id: int = 1) -> Impor
     pending: list[tuple[ParsedHand, dict, tuple]] = []
 
     for i, hand_text in enumerate(all_hands):
+        if shutdown_requested():
+            _abort_import(db)
         hid = all_ids[i]
         if hid is None:
             total_errors += 1
@@ -852,13 +881,27 @@ async def rebuild_hands():
                     _rebuild_status["processed"] = processed
                     _rebuild_status["total"] = t
 
-                _run_rebuild_sync(conn, on_progress=_on_progress)
+                try:
+                    _run_rebuild_sync(conn, on_progress=_on_progress)
 
-                conn.execute(
-                    "INSERT OR REPLACE INTO settings VALUES ('stat_version', ?)",
-                    [str(STAT_VERSION)],
-                )
+                    conn.execute(
+                        "INSERT OR REPLACE INTO settings VALUES ('stat_version', ?)",
+                        [str(STAT_VERSION)],
+                    )
+                except Exception:
+                    # _run_rebuild_sync works inside an explicit transaction.
+                    # Leaving it open would make every later statement on this
+                    # connection fail, so unwind it here.
+                    try:
+                        conn.execute("ROLLBACK")
+                    except Exception:
+                        logging.getLogger(__name__).warning(
+                            "Rollback after failed rebuild failed", exc_info=True
+                        )
+                    raise
                 logging.getLogger(__name__).info("User-triggered rebuild complete")
+        except ShutdownInterrupted:
+            logging.getLogger(__name__).info("Rebuild aborted: app is shutting down")
         except Exception:
             logging.getLogger(__name__).exception("Rebuild failed")
         finally:
@@ -912,6 +955,12 @@ def _run_rebuild_sync(db, on_progress: 'Callable[[int, int], None] | None' = Non
         prepared_by_ws: dict[int, list] = {}
         rit_updates: list[tuple] = []  # (hand_id, rit_boards, is_cashout)
         for hand_id, ws_id, site_id, raw_text in chunk:
+            if shutdown_requested():
+                # Bail out before flushing anything. This connection carries the
+                # bulk-load transaction, so the caller rolls it back and
+                # stat_version is left untouched — meaning the rebuild simply
+                # runs again on the next launch.
+                raise ShutdownInterrupted("app is shutting down; rebuild aborted")
             try:
                 parser = PARSER_BY_SITE_ID.get(site_id)
                 if parser is None:

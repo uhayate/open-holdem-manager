@@ -8,7 +8,10 @@ from fastapi.responses import FileResponse
 from starlette.formparsers import MultiPartParser
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.db import get_db, close_db, get_read_cursor, get_rebuild_status, init_request_cursors, cleanup_request_cursors
+from app.db import (
+    get_db, close_db, get_read_cursor, get_rebuild_status,
+    init_request_cursors, cleanup_request_cursors, request_shutdown,
+)
 from app.api import import_hands, stats, reports, settings, hands, cash_drop, sessions, players, population, workspaces, checkpoints, compare, identities
 
 MultiPartParser.max_part_size = 50 * 1024 * 1024  # 50MB
@@ -84,6 +87,34 @@ def health(workspace_id: int = 1):
     except Exception:
         hand_count = 0
     return {"status": "ok", "hands": hand_count, "rebuilding": False}
+
+
+@app.post("/api/shutdown")
+async def shutdown_server():
+    """Ask the server to exit, cleanly.
+
+    Electron calls this before quitting. Setting ``should_exit`` makes uvicorn
+    stop serving, run the ASGI shutdown event (``close_db()``) and exit — which
+    is what gives DuckDB the chance to checkpoint and remove its WAL.
+
+    The alternative is Electron's ``child.kill()``, which is TerminateProcess on
+    Windows: Python's atexit never runs, the WAL is left mid-write, and the next
+    launch dies inside ``get_db()`` replaying it. That is how the database gets
+    bricked, so this endpoint exists to make killing the process a last resort
+    rather than the normal path.
+
+    ``request_shutdown()`` comes first so an in-flight bulk import or stat
+    rebuild unwinds at its next hand and releases the DB lock, letting
+    ``close_db()`` run instead of blocking on it.
+    """
+    request_shutdown()
+    server = getattr(app.state, "uvicorn_server", None)
+    if server is None:
+        # Plain `uvicorn app.main:app` (dev): the process belongs to whoever
+        # started it, so there is nothing here for us to stop.
+        return {"status": "no-server"}
+    server.should_exit = True
+    return {"status": "shutting-down"}
 
 
 # Serve built frontend in packaged mode (OHM_STATIC_DIR set by Electron)

@@ -156,6 +156,55 @@ function killBackend() {
   }
 }
 
+// Ask the backend to exit on its own. Uvicorn then finishes the request, runs
+// its ASGI shutdown handler (close_db()), and exits — DuckDB checkpoints and
+// removes its WAL on the way out.
+function requestBackendShutdown() {
+  return new Promise((resolve) => {
+    if (!backendUrl) return resolve();
+    const req = http.request(
+      `${backendUrl}/api/shutdown`,
+      {
+        method: 'POST',
+        // Don't reuse a socket we are about to lose, and don't let a lingering
+        // keep-alive connection hold the server open.
+        agent: false,
+        headers: { 'Content-Length': 0, Connection: 'close' },
+        timeout: 2000,
+      },
+      (res) => {
+        res.resume();
+        res.on('end', resolve);
+      }
+    );
+    req.on('error', resolve);  // already gone — nothing to wait for
+    req.on('timeout', () => { req.destroy(); resolve(); });
+    req.end();
+  });
+}
+
+// Stop the backend cleanly, falling back to a kill only if it will not go.
+async function stopBackend() {
+  if (!backendProcess) return;
+
+  const child = backendProcess;
+  const exited = new Promise((resolve) => child.once('exit', resolve));
+
+  await requestBackendShutdown();
+
+  let timer;
+  const timedOut = await Promise.race([
+    exited.then(() => false),
+    new Promise((resolve) => { timer = setTimeout(() => resolve(true), SHUTDOWN_TIMEOUT_MS); }),
+  ]);
+  clearTimeout(timer);
+
+  if (timedOut && backendProcess) {
+    console.warn('Backend did not exit in time; killing it (WAL may be left behind)');
+    killBackend();
+  }
+}
+
 // --- Update system ---
 // Windows: electron-updater (full auto-update)
 // macOS: GitHub API checker (manual download until we get Apple signing)
@@ -270,8 +319,11 @@ function setupUpdateSystem() {
 
 // --- IPC handlers ---
 
-ipcMain.handle('install-update', () => {
+ipcMain.handle('install-update', async () => {
   if (!autoUpdater) return;
+  // Stop the backend before handing over to the updater: quitAndInstall() quits
+  // the app, and an update must not be the one path that leaves a dirty WAL.
+  await stopBackend();
   setTimeout(() => {
     try {
       autoUpdater.quitAndInstall(false, true);
@@ -339,12 +391,20 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  killBackend();
+  // Deliberately no killBackend() here: before-quit owns the shutdown, and it
+  // gives the backend a chance to checkpoint DuckDB on the way out.
   app.quit();
 });
 
-app.on('before-quit', () => {
-  killBackend();
+app.on('before-quit', (event) => {
+  if (isDev || quitting) {
+    // Second pass (or dev, where the backend is managed by whoever started it).
+    killBackend();
+    return;
+  }
+  event.preventDefault();
+  quitting = true;
+  stopBackend().finally(() => app.quit());
 });
 
 // macOS: re-create window when dock icon clicked

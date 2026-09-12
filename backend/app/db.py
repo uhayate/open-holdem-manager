@@ -36,6 +36,27 @@ _request_cursors: contextvars.ContextVar[list | None] = contextvars.ContextVar(
 _rebuild_status: dict = {"active": False, "processed": 0, "total": 0}
 
 
+class ShutdownInterrupted(RuntimeError):
+    """Raised to unwind long-running DB work because the app is shutting down."""
+
+
+# Set by POST /api/shutdown. Bulk writers poll this between hands so that
+# closing the app can end in a clean ROLLBACK and a real close_db() instead of
+# the process being killed with a transaction still open — which is exactly how
+# an unreplayable WAL gets created.
+_shutdown_requested = threading.Event()
+
+
+def shutdown_requested() -> bool:
+    """True once the app has started shutting down."""
+    return _shutdown_requested.is_set()
+
+
+def request_shutdown() -> None:
+    """Ask long-running writes to stop at their next safe point."""
+    _shutdown_requested.set()
+
+
 def _wal_path() -> Path:
     return Path(str(DB_PATH) + ".wal")
 

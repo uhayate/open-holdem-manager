@@ -106,7 +106,28 @@ during import and recreated afterwards. The stream only emits
 that ends without `done` as a failure, deliberately.
 
 Player caching (`_player_cache`, `_next_*_id`) lives in `import_hands.py`; call
-`reset_import_cache()` whenever you wipe tables.
+`reset_import_cache()` whenever you wipe tables. An interrupted import (shutdown
+mid-flight) rolls back and re-creates the indexes, because `_drop_indexes` runs
+outside the transaction and a rollback would not restore them.
+
+## Shutdown
+
+`POST /api/shutdown` sets `db.request_shutdown()` and then
+`app.state.uvicorn_server.should_exit = True`. Exiting through uvicorn (rather
+than being killed) is what runs the ASGI shutdown event → `close_db()` → DuckDB
+checkpoint → WAL removed.
+
+`run_server.py` therefore builds `uvicorn.Server(uvicorn.Config(...))` and
+publishes the instance on `app.state.uvicorn_server`; `uvicorn.run()` would keep
+it private and there would be no way to stop the server from a request handler.
+Under plain `uvicorn app.main:app` (dev) that attribute is absent and the
+endpoint returns `{"status": "no-server"}` — nothing to stop.
+
+Startup also **self-heals a broken WAL**: `get_db()` catches `duckdb.Error` and,
+if the message mentions replaying the WAL, renames it to
+`<db>.wal.corrupt-<timestamp>` (never deleted) and retries once. Before that,
+an unreplayable WAL wedged every launch permanently, since it is replayed
+every time.
 
 ## Environment Variables
 
