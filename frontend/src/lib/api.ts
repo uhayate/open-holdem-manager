@@ -718,6 +718,8 @@ export interface SessionSummary {
   ev_usd: number;
   rake_bb: number;
   rake_usd: number;
+  jackpot_bb: number;
+  jackpot_usd: number;
   bb_per_100: number;
   ev_bb_per_100: number;
 }

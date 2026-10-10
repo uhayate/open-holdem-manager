@@ -19,6 +19,7 @@ WITH ordered_hands AS (
     SELECT h.id AS hand_id, h.played_at, h.stakes, h.bb_amount,
            hp.won_bb, hp.won, COALESCE(hp.all_in_ev_bb, hp.won_bb) AS ev_bb,
            hp.rake_bb, hp.rake,
+           hp.jackpot, hp.jackpot_bb,
            hp.vpip, hp.pfr, hp.three_bet, hp.three_bet_opp,
            hp.cbet_flop, hp.cbet_flop_opp, hp.saw_flop,
            hp.went_to_showdown, hp.won_at_showdown,
@@ -66,7 +67,9 @@ def get_sessions(workspace_id: int = 1):
             SUM(CAST(ev_bb AS DOUBLE)) AS ev_bb,
             SUM(CAST(ev_bb AS DOUBLE) * CAST(bb_amount AS DOUBLE)) AS ev_usd,
             SUM(CAST(rake_bb AS DOUBLE)) AS rake_bb,
-            SUM(CAST(rake AS DOUBLE)) AS rake_usd
+            SUM(CAST(rake AS DOUBLE)) AS rake_usd,
+            SUM(CAST(jackpot_bb AS DOUBLE)) AS jackpot_bb,
+            SUM(CAST(jackpot AS DOUBLE)) AS jackpot_usd
         FROM sessioned
         GROUP BY session_idx
         ORDER BY session_idx DESC
@@ -74,7 +77,8 @@ def get_sessions(workspace_id: int = 1):
 
     summaries = []
     for r in rows:
-        idx, start, end, n, stakes_arr, won_bb, won_usd, ev_bb, ev_usd, rake_bb, rake_usd = r
+        (idx, start, end, n, stakes_arr, won_bb, won_usd, ev_bb, ev_usd,
+         rake_bb, rake_usd, jackpot_bb, jackpot_usd) = r
         if isinstance(start, str):
             start = datetime.fromisoformat(start)
         if isinstance(end, str):
@@ -93,6 +97,8 @@ def get_sessions(workspace_id: int = 1):
             ev_usd=round(float(ev_usd or 0), 2),
             rake_bb=round(float(rake_bb or 0), 2),
             rake_usd=round(float(rake_usd or 0), 2),
+            jackpot_bb=round(float(jackpot_bb or 0), 2),
+            jackpot_usd=round(float(jackpot_usd or 0), 2),
             bb_per_100=round((float(won_bb or 0) / n) * 100, 2) if n else 0,
             ev_bb_per_100=round((float(ev_bb or 0) / n) * 100, 2) if n else 0,
         ))
@@ -136,7 +142,11 @@ def get_session_detail(session_index: int, workspace_id: int = 1):
             SUM(CASE WHEN saw_flop AND CAST(COALESCE(won_bb, 0) AS DOUBLE) > 0 THEN 1 ELSE 0 END) AS wwsf_c,
             SUM(COALESCE(flop_bets, 0) + COALESCE(flop_raises, 0)) AS flop_agg,
             SUM(COALESCE(flop_bets, 0) + COALESCE(flop_raises, 0)
-              + COALESCE(flop_calls, 0) + COALESCE(flop_checks, 0) + COALESCE(flop_folds, 0)) AS flop_total
+              + COALESCE(flop_calls, 0) + COALESCE(flop_checks, 0) + COALESCE(flop_folds, 0)) AS flop_total,
+            -- Appended last on purpose: inserting these earlier would shift
+            -- every agg[i] index used below.
+            SUM(CAST(jackpot_bb AS DOUBLE)) AS jackpot_bb,
+            SUM(CAST(jackpot AS DOUBLE)) AS jackpot_usd
         FROM sessioned
         WHERE session_idx = ?
     """, [player_id, workspace_id, session_index]).fetchone()
@@ -155,6 +165,8 @@ def get_session_detail(session_index: int, workspace_id: int = 1):
     ev_usd = float(agg[7] or 0)
     rake_bb = float(agg[8] or 0)
     rake_usd = float(agg[9] or 0)
+    jackpot_bb = float(agg[24] or 0)
+    jackpot_usd = float(agg[25] or 0)
 
     summary_kwargs = dict(
         session_index=session_index,
@@ -169,6 +181,8 @@ def get_session_detail(session_index: int, workspace_id: int = 1):
         ev_usd=round(ev_usd, 2),
         rake_bb=round(rake_bb, 2),
         rake_usd=round(rake_usd, 2),
+        jackpot_bb=round(jackpot_bb, 2),
+        jackpot_usd=round(jackpot_usd, 2),
         bb_per_100=round((won_bb / n) * 100, 2) if n else 0,
         ev_bb_per_100=round((ev_bb / n) * 100, 2) if n else 0,
     )

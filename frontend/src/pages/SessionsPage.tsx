@@ -267,6 +267,17 @@ function SessionDetail({ index }: { index: number }) {
   const n = stats.hands;
   const durationHrs = stats.duration_minutes / 60;
 
+  // Pre-deduction ("gross") figures, matching the graph page: rake and jackpot
+  // are already taken out of the winner's collected amount, so adding them back
+  // reconstructs the result as if no fee had been charged.
+  const grossBB = stats.won_bb + stats.rake_bb + stats.jackpot_bb;
+  const grossUSD = stats.won_usd + stats.rake_usd + stats.jackpot_usd;
+  const grossRateBB = n > 0 ? (grossBB / n) * 100 : 0;
+  const grossEvBB = stats.ev_bb + stats.rake_bb + stats.jackpot_bb;
+  const grossEvUSD = stats.ev_usd + stats.rake_usd + stats.jackpot_usd;
+  const grossEvRateBB = n > 0 ? (grossEvBB / n) * 100 : 0;
+  const hasFees = stats.rake_bb + stats.jackpot_bb > 0;
+
   return (
     <div className="max-w-6xl mx-auto space-y-1.5">
       {/* Header info strip */}
@@ -406,6 +417,11 @@ function SessionDetail({ index }: { index: number }) {
             <div className="text-sm font-mono text-text-muted">bb/100</div>
             <div className="text-[10px] text-text-muted uppercase tracking-wide">Won</div>
             <div className="text-[10px] text-text-muted uppercase tracking-wide">Rate</div>
+            {hasFees && (
+              <div className="col-span-2 mt-1 text-[11px] font-mono text-text-muted">
+                Gross {fmtUSD(grossUSD)} · {fmtBB(grossBB)} · {grossRateBB.toFixed(2)} bb/100
+              </div>
+            )}
           </div>
           <div className="px-4 py-3 border-l border-border grid grid-cols-2 gap-x-4">
             {hasEVData ? (
@@ -416,6 +432,11 @@ function SessionDetail({ index }: { index: number }) {
                 <div className="text-sm font-mono text-text-muted">EV bb/100</div>
                 <div className="text-[10px] text-text-muted uppercase tracking-wide">Won EV</div>
                 <div className="text-[10px] text-text-muted uppercase tracking-wide">EV Rate</div>
+                {hasFees && (
+                  <div className="col-span-2 mt-1 text-[11px] font-mono text-text-muted">
+                    Gross {fmtUSD(grossEvUSD)} · {fmtBB(grossEvBB)} · {grossEvRateBB.toFixed(2)} bb/100
+                  </div>
+                )}
               </>
             ) : (
               <>

@@ -448,6 +448,10 @@ class SessionSummary(BaseModel):
     ev_usd: float
     rake_bb: float
     rake_usd: float
+    # Fees beyond rake. Kept separate so callers can reconstruct the
+    # pre-deduction (gross) result: won + rake + jackpot.
+    jackpot_bb: float = 0
+    jackpot_usd: float = 0
     bb_per_100: float
     ev_bb_per_100: float
 
@@ -483,6 +487,10 @@ class SessionStats(BaseModel):
     ev_usd: float
     rake_bb: float
     rake_usd: float
+    # Must mirror SessionSummary: this is a standalone model, not a subclass,
+    # so pydantic silently drops any field that is not declared here.
+    jackpot_bb: float = 0
+    jackpot_usd: float = 0
     bb_per_100: float
     ev_bb_per_100: float
     hands_per_hour: float
