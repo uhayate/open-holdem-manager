@@ -33,6 +33,10 @@ class ParsedHand:
     collected: dict[str, Decimal]
     total_rake: Decimal
     total_jackpot: Decimal
+    # Every fee GG lists on the summary line (Rake + Jackpot + Bingo +
+    # Fortune + Tax). `total_rake` is pure Rake; this is what the pot/EV
+    # math wants, and it is what `sum(net_won)` must equal as a negative.
+    total_fees: Decimal
     went_to_showdown_players: set[str]
     in_showdown: bool
     sb_player: str | None
@@ -44,19 +48,38 @@ class ParsedHand:
     is_cashout: bool = False
 
 
-# Position labels for 6-max (clockwise from BTN)
-POSITIONS_6MAX = ["BTN", "SB", "BB", "EP", "MP", "CO"]
-# For fewer players, trim from the middle positions
+# Position labels, ordered clockwise starting at BTN.
+# Ante tables can seat fewer players than the table's max — the label set is
+# chosen by how many players actually showed up, so a 6-max that dealt 5 hands
+# still reads as a 5-handed board rather than leaving a hole.
+#
+# 6/8/9-handed labels are the agreed convention:
+#   6-max  BTN SB BB UTG HJ CO
+#   8-max  BTN SB BB UTG UTG1 LJ HJ CO
+#   9-max  BTN SB BB UTG UTG1 UTG2 LJ HJ CO
+# 5- and 7-handed sets are interpolated by trimming the deepest early position
+# and are the most likely to need revisiting once real traffic shows up.
 POSITIONS_BY_COUNT = {
     2: ["BTN", "BB"],
     3: ["BTN", "SB", "BB"],
     4: ["BTN", "SB", "BB", "CO"],
-    5: ["BTN", "SB", "BB", "MP", "CO"],
-    6: ["BTN", "SB", "BB", "EP", "MP", "CO"],
-    7: ["BTN", "SB", "BB", "EP", "MP", "HJ", "CO"],
-    8: ["BTN", "SB", "BB", "UTG", "EP", "MP", "HJ", "CO"],
-    9: ["BTN", "SB", "BB", "UTG", "UTG1", "EP", "MP", "HJ", "CO"],
+    5: ["BTN", "SB", "BB", "UTG", "CO"],
+    6: ["BTN", "SB", "BB", "UTG", "HJ", "CO"],
+    7: ["BTN", "SB", "BB", "UTG", "UTG1", "HJ", "CO"],
+    8: ["BTN", "SB", "BB", "UTG", "UTG1", "LJ", "HJ", "CO"],
+    9: ["BTN", "SB", "BB", "UTG", "UTG1", "UTG2", "LJ", "HJ", "CO"],
 }
+
+# Nominal 6-max label set — used as the fallback when the seat count is
+# outside the 2..9 range the table above covers.
+POSITIONS_6MAX = ["BTN", "SB", "BB", "UTG", "HJ", "CO"]
+
+# Every label the parser can emit, ordered from the blinds up to the button.
+# Positional-stats aggregation and IP/OOP ordering both key off this, so any
+# label in POSITIONS_BY_COUNT has to appear here too.
+ALL_POSITIONS = [
+    "SB", "BB", "UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN",
+]
 
 
 def _assign_positions(seats: list[dict], button_seat: int, table_size: int) -> None:

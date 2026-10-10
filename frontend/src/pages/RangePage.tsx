@@ -87,7 +87,7 @@ function formatCellValue(value: number | null, colorBy: ColorBy): string {
 
 const MIN_SAMPLE = 30;
 
-const POSITIONS = ['All', 'EP', 'MP', 'CO', 'BTN', 'SB', 'BB'];
+const POSITIONS = ['All', 'UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 
 const COLOR_OPTIONS: { value: ColorBy; label: string }[] = [
   { value: 'bb100', label: 'bb/100' },

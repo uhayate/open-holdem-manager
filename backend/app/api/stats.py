@@ -1,7 +1,7 @@
 import math
 
 from fastapi import APIRouter, Query, HTTPException, Path
-from app.db import get_read_cursor, get_hero_player_id, get_hero_username
+from app.db import get_read_cursor, get_hero_player_id, get_hero_username, normalize_date_to
 from app.models import (
     HeroStats, ComboStats, RangeResponse, StatDetailHand, StatDetailHandsResponse,
 )
@@ -89,7 +89,7 @@ def get_range_stats(
         params.append(date_from)
     if date_to:
         query += " AND h.played_at <= ?"
-        params.append(date_to)
+        params.append(normalize_date_to(date_to))
 
     rows = db.execute(query, params).fetchall()
 
@@ -115,7 +115,7 @@ def get_range_stats(
         total_params.append(date_from)
     if date_to:
         total_query += " AND h.played_at <= ?"
-        total_params.append(date_to)
+        total_params.append(normalize_date_to(date_to))
 
     total_hands = db.execute(total_query, total_params).fetchone()[0]
 
@@ -237,7 +237,7 @@ def get_stat_detail_hands(
         params.append(date_from)
     if date_to:
         where_parts.append("h.played_at <= ?")
-        params.append(date_to)
+        params.append(normalize_date_to(date_to))
 
     where_sql = " AND ".join(where_parts)
 

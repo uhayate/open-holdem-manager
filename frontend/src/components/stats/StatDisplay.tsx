@@ -285,12 +285,16 @@ export function svDelta(a: StatValue | undefined, b: StatValue | undefined): num
   return Math.round((a.value - b.value) * 10) / 10;
 }
 
+/** Position keys, in action order around the table. */
+export type PositionKey =
+  | 'total' | 'utg' | 'utg1' | 'utg2' | 'lj' | 'hj' | 'co' | 'btn' | 'sb' | 'bb';
+
 /** Build positional row from PositionalStats */
 export function posRow(
   label: string,
   ps: PositionalStats | undefined,
   statKey?: string,
-  positions: ('total' | 'ep' | 'mp' | 'co' | 'btn' | 'sb' | 'bb')[] = ['total', 'ep', 'mp', 'co', 'btn', 'sb', 'bb'],
+  positions: PositionKey[] = ['total', 'utg', 'hj', 'co', 'btn', 'sb', 'bb'],
   drillKey?: string,
   groupEnd?: boolean,
   comparePs?: PositionalStats,

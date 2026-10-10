@@ -739,7 +739,7 @@ class TestOpenRaiseOpp:
         hand_id = insert_parsed_hand(db, parsed)
 
         # Hand: 6-max, Hero is BTN (seat 1)
-        # Preflop action order: Player4 (EP) folds, Player5 (MP) raises,
+        # Preflop action order: Player4 (UTG) folds, Player5 (HJ) raises,
         # Player6 (CO) folds, Hero (BTN) raises, Player2 (SB) folds, Player3 (BB) folds
         #
         # Before first raise (raise_count=0): Player4 acts → opp=True

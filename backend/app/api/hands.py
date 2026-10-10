@@ -4,7 +4,7 @@ from typing import Optional
 import math
 import re
 
-from app.db import get_db, db_lock, get_read_cursor, get_hero_player_id, get_hero_username
+from app.db import get_db, db_lock, get_read_cursor, get_hero_player_id, get_hero_username, normalize_date_to
 from app.models import (
     HandSummary, HandListResponse, HandDetail, HandPlayerDetail,
     HandAction, BoardCards, TagCount, ActionItem,
@@ -74,7 +74,9 @@ def list_hands(
             where_clauses.append(
                 "NOT EXISTS (SELECT 1 FROM hand_tags ht2 WHERE ht2.hand_id = h.id AND ht2.workspace_id = h.workspace_id)"
             )
-        else:
+        elif tag_list:
+            # Guard the empty case: `tags=,` yields no names, and
+            # `IN ()` is a syntax error, not an empty match.
             ph = ",".join("?" for _ in tag_list)
             where_clauses.append(
                 f"EXISTS (SELECT 1 FROM hand_tags ht2 WHERE ht2.hand_id = h.id AND ht2.workspace_id = h.workspace_id AND ht2.tag IN ({ph}))"
@@ -86,7 +88,7 @@ def list_hands(
         params.append(date_from)
     if date_to:
         where_clauses.append("h.played_at <= ?")
-        params.append(date_to)
+        params.append(normalize_date_to(date_to))
 
     if player_id is not None:
         where_clauses.append(
@@ -359,7 +361,7 @@ def get_hand(hand_id: str, workspace_id: int = Query(1)):
         username_to_position[pr[2]] = pr[1]  # pr[2]=username, pr[1]=position
 
     # Extract blind/ante postings from raw text (before *** HOLE CARDS ***)
-    _RE_BLIND_POST = re.compile(r'^(.+?): posts (small blind|big blind|ante) \$([0-9.]+)')
+    _RE_BLIND_POST = re.compile(r'^(.+?): posts (?:the )?(small blind|big blind|ante) \$([0-9.]+)')
     _BLIND_ACTION = {"small blind": "post_sb", "big blind": "post_bb", "ante": "post_ante"}
     blind_actions: list[HandAction] = []
     for line in raw_text.split('\n'):
@@ -449,13 +451,18 @@ class TagBody(BaseModel):
 
 @router.post("/hands/{hand_id}/tags")
 def add_tag(hand_id: str, body: TagBody, workspace_id: int = Query(1)):
+    tag = body.tag.strip()
+    if not tag:
+        # Storing an empty tag creates a phantom entry that shows up in the
+        # tag filter and then blows up the query with `IN ()`.
+        raise HTTPException(status_code=400, detail="Tag must not be blank")
     with db_lock():
         db = get_db()
         if not db.execute("SELECT 1 FROM hands WHERE id = ? AND workspace_id = ?", [hand_id, workspace_id]).fetchone():
             raise HTTPException(status_code=404, detail="Hand not found")
         db.execute(
             "INSERT OR IGNORE INTO hand_tags (hand_id, tag, workspace_id) VALUES (?, ?, ?)",
-            [hand_id, body.tag.strip(), workspace_id],
+            [hand_id, tag, workspace_id],
         )
         return {"status": "ok"}
 

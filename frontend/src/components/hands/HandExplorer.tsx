@@ -6,6 +6,7 @@ import { useFilterOptions } from '@/hooks/useFilterOptions';
 import { queryKeys } from '@/lib/query-keys';
 import { queryClient } from '@/lib/query-client';
 import { formatStakes, formatRelativeDate } from '@/lib/utils';
+import { toLocalDateString } from '@/lib/date-presets';
 import EmptyState from '@/components/EmptyState';
 import HandFilters from '@/components/hands/HandFilters';
 import type { FilterState } from '@/components/hands/HandFilters';
@@ -26,15 +27,15 @@ import {
 } from '@/components/ui/table';
 
 function getDateRange(preset: string, dateFrom: string, dateTo: string): { from?: string; to?: string } {
+  // Local calendar dates — see toLocalDateString for why toISOString() is wrong.
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
   switch (preset) {
     case 'today':
-      return { from: today.toISOString().slice(0, 10) };
+      return { from: toLocalDateString(today) };
     case 'week': {
       const d = new Date(today);
       d.setDate(d.getDate() - d.getDay());
-      return { from: d.toISOString().slice(0, 10) };
+      return { from: toLocalDateString(d) };
     }
     case 'month':
       return { from: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01` };
@@ -371,7 +372,7 @@ export default function HandExplorer({
                       }`}>
                         {Math.abs(wonUsd) < 0.005
                           ? '\u2014'
-                          : `${wonUsd < 0 ? '-' : ''}${Math.abs(wonUsd).toFixed(2)}$`}
+                          : `${wonUsd < 0 ? '-' : ''}$${Math.abs(wonUsd).toFixed(2)}`}
                       </TableCell>
                       {/* EV Diff */}
                       <TableCell className={`py-1.5 px-2 text-right font-mono text-[15px] ${
@@ -380,7 +381,7 @@ export default function HandExplorer({
                       }`}>
                         {Math.abs(evDiffUsd) < 0.005
                           ? '\u2014'
-                          : `${evDiffUsd < 0 ? '-' : ''}${Math.abs(evDiffUsd).toFixed(2)}$`}
+                          : `${evDiffUsd < 0 ? '-' : ''}$${Math.abs(evDiffUsd).toFixed(2)}`}
                       </TableCell>
                       {/* Date */}
                       <TableCell className="py-1.5 px-2 text-right text-[14px] text-text-muted whitespace-nowrap">

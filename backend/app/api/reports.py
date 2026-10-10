@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query
-from app.db import get_read_cursor, get_hero_player_id
+from app.db import get_read_cursor, get_hero_player_id, normalize_date_to
 from app.models import GraphPoint, GraphResponse, VarianceStats, SessionMarker, FilterOptions, StakeBreakdown, MonthBreakdown, PositionBreakdown, ResultsBreakdown, DriftStat, DriftResponse
 import math
 from datetime import datetime, timedelta
@@ -51,7 +51,7 @@ def get_graph(
         params.append(date_from)
     if date_to:
         query += " AND h.played_at <= ?"
-        params.append(date_to)
+        params.append(normalize_date_to(date_to))
 
     query += " ORDER BY h.played_at ASC, h.id ASC"
 
@@ -241,7 +241,7 @@ def get_breakdown(
         params.append(date_from)
     if date_to:
         where += " AND h.played_at <= ?"
-        params.append(date_to)
+        params.append(normalize_date_to(date_to))
 
     # For last_n, restrict to the most recent N hand IDs
     last_n_cte = ""
@@ -334,8 +334,8 @@ def get_breakdown(
             ev_bb_per_100=round((eb / n) * 100, 2) if n else 0,
         ))
 
-    # By position
-    pos_order = ['EP', 'MP', 'CO', 'BTN', 'SB', 'BB']
+    # By position — read order follows the action order around the table
+    pos_order = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB']
     pos_rows = db.execute(
         f"""{base_cte}
         SELECT position, COUNT(*), SUM(won_bb_v), SUM(won_usd_v), SUM(ev_bb_v),
@@ -372,7 +372,12 @@ _DRIFT_STATS_V2: list[tuple[str, str, str]] = [
     ("vpip",               "CAST(hp.vpip AS DOUBLE)",               ""),
     ("pfr",                "CAST(hp.pfr AS DOUBLE)",                ""),
     ("three_bet",          "CAST(hp.three_bet AS DOUBLE)",          "AND hp.three_bet_opp = true"),
-    ("fold_to_3bet",       "CAST(hp.fold_to_3bet AS DOUBLE)",       "AND hp.three_bet_opp = true"),
+    # fold_to_3bet's opportunity is "I opened and got 3-bet", which stat_flags
+    # records as fold_to_3bet IS NOT NULL — NOT three_bet_opp (that flag also
+    # covers players who merely acted between the open and the 3-bet, and the
+    # 3-bettor themself). Using three_bet_opp here made this drift page report
+    # ~4% against the ~53% shown everywhere else.
+    ("fold_to_3bet",       "CAST(hp.fold_to_3bet AS DOUBLE)",       "AND hp.fold_to_3bet IS NOT NULL"),
     ("cbet_flop",          "CAST(hp.cbet_flop AS DOUBLE)",          "AND hp.cbet_flop_opp = true"),
     ("fold_to_cbet_flop",  "CAST(hp.fold_to_cbet_flop AS DOUBLE)",  "AND hp.fold_to_cbet_flop IS NOT NULL"),
     ("went_to_showdown",   "CAST(hp.went_to_showdown AS DOUBLE)",   "AND hp.saw_flop = true"),
@@ -458,7 +463,7 @@ def get_drift(
         params.append(date_from)
     if date_to:
         where += " AND h.played_at <= ?"
-        params.append(date_to)
+        params.append(normalize_date_to(date_to))
 
     # Get total hand count
     total_count = db.execute(

@@ -17,8 +17,8 @@ export interface BenchmarkRange {
 
 export interface PositionalBenchmarks {
   total: BenchmarkRange;
-  ep?: BenchmarkRange;
-  mp?: BenchmarkRange;
+  utg?: BenchmarkRange;
+  hj?: BenchmarkRange;
   co?: BenchmarkRange;
   btn?: BenchmarkRange;
   sb?: BenchmarkRange;
@@ -68,8 +68,8 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
       weight: 5,
       statFlagFilter: 'vpip',
     },
-    ep: { low: 12, high: 18, tipLow: 'EP VPIP too tight. Missing value with playable hands.', tipHigh: 'EP VPIP too loose. Tighten from early position.', fix: 'EP should play ~15% of hands.', weight: 3 },
-    mp: { low: 15, high: 22, tipLow: 'MP VPIP too tight.', tipHigh: 'MP VPIP too loose.', fix: 'MP should play ~18% of hands.', weight: 3 },
+    utg: { low: 12, high: 18, tipLow: 'UTG VPIP too tight. Missing value with playable hands.', tipHigh: 'UTG VPIP too loose. Tighten from early position.', fix: 'UTG should play ~15% of hands.', weight: 3 },
+    hj: { low: 15, high: 22, tipLow: 'HJ VPIP too tight.', tipHigh: 'HJ VPIP too loose.', fix: 'HJ should play ~18% of hands.', weight: 3 },
     co: { low: 24, high: 32, tipLow: 'CO VPIP too tight. Open wider in the cutoff.', tipHigh: 'CO VPIP too loose.', fix: 'CO should play ~28% of hands.', weight: 3 },
     btn: { low: 35, high: 50, tipLow: 'BTN VPIP too tight. You have position -- play wider.', tipHigh: 'BTN VPIP too loose.', fix: 'BTN should play ~42% of hands.', weight: 3 },
     sb: { low: 28, high: 40, tipLow: 'SB VPIP too tight.', tipHigh: 'SB VPIP too loose. Cold-calling OOP is expensive.', fix: 'SB VPIP-PFR gap should be 0-5%. Raise or fold.', weight: 3 },
@@ -84,8 +84,8 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
       weight: 5,
       statFlagFilter: 'pfr',
     },
-    ep: { low: 10, high: 16, tipLow: 'EP PFR too tight.', tipHigh: 'EP PFR too loose.', fix: 'EP should raise ~13%.', weight: 3 },
-    mp: { low: 13, high: 19, tipLow: 'MP PFR too tight.', tipHigh: 'MP PFR too loose.', fix: 'MP should raise ~16%.', weight: 3 },
+    utg: { low: 10, high: 16, tipLow: 'UTG PFR too tight.', tipHigh: 'UTG PFR too loose.', fix: 'UTG should raise ~13%.', weight: 3 },
+    hj: { low: 13, high: 19, tipLow: 'HJ PFR too tight.', tipHigh: 'HJ PFR too loose.', fix: 'HJ should raise ~16%.', weight: 3 },
     co: { low: 20, high: 28, tipLow: 'CO PFR too tight.', tipHigh: 'CO PFR too loose.', fix: 'CO should raise ~24%.', weight: 3 },
     btn: { low: 30, high: 45, tipLow: 'BTN PFR too tight. Raise wider on the button.', tipHigh: 'BTN PFR too loose.', fix: 'BTN should raise ~37%.', weight: 3 },
     sb: { low: 25, high: 38, tipLow: 'SB PFR too tight. Modern SB strategy is raise-or-fold.', tipHigh: 'SB PFR too loose.', fix: 'SB PFR should be close to SB VPIP. Raise or fold.', weight: 3 },
@@ -96,13 +96,13 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
       low: 15, high: 30,
       tipLow: 'Not opening enough hands when folded to you. Missing value.',
       tipHigh: 'Opening too wide. Opponents will exploit you with 3-bets.',
-      fix: 'Study RFI charts for each position. EP ~15%, BTN ~45%.',
+      fix: 'Study RFI charts for each position. UTG ~15%, BTN ~45%.',
       weight: 4,
       statFlagFilter: 'open_raise',
       oppFlagFilter: 'open_raise_opp',
     },
-    ep: { low: 12, high: 18, tipLow: 'EP open too tight.', tipHigh: 'EP open too wide.', fix: 'EP should open ~15%.', weight: 3 },
-    mp: { low: 15, high: 22, tipLow: 'MP open too tight.', tipHigh: 'MP open too wide.', fix: 'MP should open ~18%.', weight: 3 },
+    utg: { low: 12, high: 18, tipLow: 'UTG open too tight.', tipHigh: 'UTG open too wide.', fix: 'UTG should open ~15%.', weight: 3 },
+    hj: { low: 15, high: 22, tipLow: 'HJ open too tight.', tipHigh: 'HJ open too wide.', fix: 'HJ should open ~18%.', weight: 3 },
     co: { low: 22, high: 35, tipLow: 'CO open too tight.', tipHigh: 'CO open too wide.', fix: 'CO should open ~28%.', weight: 3 },
     btn: { low: 38, high: 55, tipLow: 'BTN open too tight.', tipHigh: 'BTN open too wide.', fix: 'BTN should open ~45%.', weight: 3 },
     sb: { low: 30, high: 50, tipLow: 'SB open too tight.', tipHigh: 'SB open too wide.', fix: 'SB should open ~40% (raise or fold).', weight: 3 },
@@ -139,8 +139,8 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
       statFlagFilter: 'four_bet',
       oppFlagFilter: 'four_bet_opp',
     },
-    ep: { low: 8, high: 18, tipLow: 'EP 4-bet too low vs 3-bets.', tipHigh: 'EP 4-bet too high.', fix: 'EP opens tight so 4-bets a large % when 3-bet.', weight: 2 },
-    mp: { low: 6, high: 14, tipLow: 'MP 4-bet too low.', tipHigh: 'MP 4-bet too high.', fix: 'Target 6-14% 4-bet from MP.', weight: 2 },
+    utg: { low: 8, high: 18, tipLow: 'UTG 4-bet too low vs 3-bets.', tipHigh: 'UTG 4-bet too high.', fix: 'UTG opens tight so 4-bets a large % when 3-bet.', weight: 2 },
+    hj: { low: 6, high: 14, tipLow: 'HJ 4-bet too low.', tipHigh: 'HJ 4-bet too high.', fix: 'Target 6-14% 4-bet from HJ.', weight: 2 },
     co: { low: 5, high: 12, tipLow: 'CO 4-bet too low.', tipHigh: 'CO 4-bet too high.', fix: 'Target 5-12% 4-bet from CO.', weight: 2 },
     btn: { low: 5, high: 11, tipLow: 'BTN 4-bet too low.', tipHigh: 'BTN 4-bet too high.', fix: 'Target 5-11% 4-bet from BTN.', weight: 2 },
     sb: { low: 4, high: 10, tipLow: 'SB 4-bet too low.', tipHigh: 'SB 4-bet too high.', fix: 'Target 4-10% 4-bet from SB.', weight: 2 },
@@ -156,8 +156,8 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
       statFlagFilter: 'fold_to_4bet',
       oppFlagFilter: 'four_bet_opp',
     },
-    ep: { low: 40, high: 55, tipLow: 'EP: defending too wide vs 4-bets.', tipHigh: 'EP: folding too much vs 4-bets.', fix: 'EP 3-bets tight, so defend more vs 4-bets.', weight: 2 },
-    mp: { low: 45, high: 58, tipLow: 'MP: defending too wide vs 4-bets.', tipHigh: 'MP: folding too much vs 4-bets.', fix: 'Target 45-58% fold-to-4-bet from MP.', weight: 2 },
+    utg: { low: 40, high: 55, tipLow: 'UTG: defending too wide vs 4-bets.', tipHigh: 'UTG: folding too much vs 4-bets.', fix: 'UTG 3-bets tight, so defend more vs 4-bets.', weight: 2 },
+    hj: { low: 45, high: 58, tipLow: 'HJ: defending too wide vs 4-bets.', tipHigh: 'HJ: folding too much vs 4-bets.', fix: 'Target 45-58% fold-to-4-bet from HJ.', weight: 2 },
     co: { low: 50, high: 63, tipLow: 'CO: defending too wide vs 4-bets.', tipHigh: 'CO: folding too much vs 4-bets.', fix: 'Target 50-63% fold-to-4-bet from CO.', weight: 2 },
     btn: { low: 55, high: 68, tipLow: 'BTN: defending too wide vs 4-bets.', tipHigh: 'BTN: folding too much vs 4-bets.', fix: 'BTN 3-bets wider so folds more to 4-bets.', weight: 2 },
     sb: { low: 50, high: 65, tipLow: 'SB: defending too wide vs 4-bets.', tipHigh: 'SB: folding too much vs 4-bets.', fix: 'Target 50-65% fold-to-4-bet from SB.', weight: 2 },
@@ -168,12 +168,12 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
       low: 0, high: 5,
       tipLow: 'N/A',
       tipHigh: 'Limping too much. Open raise or fold instead.',
-      fix: 'Eliminate open limps from EP-BTN. Raise or fold.',
+      fix: 'Eliminate open limps from UTG-BTN. Raise or fold.',
       weight: 3,
       statFlagFilter: 'limp',
     },
-    ep: { low: 0, high: 3, tipLow: 'N/A', tipHigh: 'Limping from EP is a major leak.', fix: 'Never limp from EP. Raise or fold.', weight: 3 },
-    mp: { low: 0, high: 3, tipLow: 'N/A', tipHigh: 'Limping from MP is a major leak.', fix: 'Never limp from MP. Raise or fold.', weight: 3 },
+    utg: { low: 0, high: 3, tipLow: 'N/A', tipHigh: 'Limping from UTG is a major leak.', fix: 'Never limp from UTG. Raise or fold.', weight: 3 },
+    hj: { low: 0, high: 3, tipLow: 'N/A', tipHigh: 'Limping from HJ is a major leak.', fix: 'Never limp from HJ. Raise or fold.', weight: 3 },
     co: { low: 0, high: 3, tipLow: 'N/A', tipHigh: 'Limping from CO is a major leak.', fix: 'Never limp from CO. Raise or fold.', weight: 3 },
     btn: { low: 0, high: 3, tipLow: 'N/A', tipHigh: 'Limping from BTN is a major leak.', fix: 'Never limp from BTN. Raise or fold.', weight: 3 },
     sb: { low: 0, high: 100, tipLow: 'N/A', tipHigh: 'N/A', fix: 'SB limp (completing) is a valid strategy.', weight: 0 },

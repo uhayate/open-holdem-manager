@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { PlusIcon } from 'lucide-react';
-import type { DatePreset } from '@/lib/date-presets';
+import { toLocalDateString, type DatePreset } from '@/lib/date-presets';
 import type { FilterOptions } from '@/lib/api';
 import { formatStakes } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -99,7 +99,7 @@ export default function FilterBar({
 }: FilterBarProps) {
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newDate, setNewDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [newDate, setNewDate] = useState(() => toLocalDateString(new Date()));
   const [newTime, setNewTime] = useState(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -157,7 +157,7 @@ export default function FilterBar({
       // Reset form and open dialog
       const now = new Date();
       setNewName('');
-      setNewDate(now.toISOString().slice(0, 10));
+      setNewDate(toLocalDateString(now));
       setNewTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
       setNewNote('');
       setNewDialogOpen(true);
@@ -330,7 +330,7 @@ export default function FilterBar({
                 <label className="text-sm font-medium">Date</label>
                 <DatePicker
                   value={newDate}
-                  onChange={(v) => setNewDate(v || new Date().toISOString().slice(0, 10))}
+                  onChange={(v) => setNewDate(v || toLocalDateString(new Date()))}
                   placeholder="Checkpoint date"
                   className="h-9 text-sm w-full"
                 />

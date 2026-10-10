@@ -4,6 +4,7 @@ import { useWorkspace } from '@/contexts/WorkspaceContext';
 import type { Workspace } from '@/contexts/WorkspaceContext';
 import { useFilterOptions } from '@/hooks/useFilterOptions';
 import { fetchCompareStats } from '@/lib/api';
+import { toLocalDateString } from '@/lib/date-presets';
 import type { PeriodStats } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -94,7 +95,7 @@ export default function ComparePage() {
       return {
         ...base,
         period_a_from: aFrom || '2000-01-01',
-        period_a_to: aTo || new Date().toISOString().slice(0, 10),
+        period_a_to: aTo || toLocalDateString(new Date()),
         period_b_from: bFrom || '2000-01-01',
         period_b_to: bTo || undefined,
       };

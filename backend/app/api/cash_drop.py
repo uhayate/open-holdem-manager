@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query
-from app.db import get_read_cursor, get_hero_player_id
+from app.db import get_read_cursor, get_hero_player_id, normalize_date_to
 from collections import defaultdict
 from app.models import (
     CashDropResponse, CashDropSummary, CashDropTypeBreakdown,
@@ -26,7 +26,7 @@ def _build_filters(stakes, date_from, date_to, workspace_id=1):
         params.append(date_from)
     if date_to:
         clauses += " AND h.played_at <= ?"
-        params.append(date_to)
+        params.append(normalize_date_to(date_to))
     return clauses, params
 
 

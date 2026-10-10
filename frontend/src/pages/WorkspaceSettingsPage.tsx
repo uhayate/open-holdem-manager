@@ -11,6 +11,7 @@ import {
   deleteCheckpoint,
 } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
+import { toLocalDateString } from '@/lib/date-presets';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -95,7 +96,7 @@ export default function WorkspaceSettingsPage() {
   // Checkpoint dialog
   const [cpDialogWs, setCpDialogWs] = useState<Workspace | null>(null);
   const [newCpName, setNewCpName] = useState('');
-  const [newCpDate, setNewCpDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [newCpDate, setNewCpDate] = useState(() => toLocalDateString(new Date()));
   const [newCpTime, setNewCpTime] = useState(() => {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -288,7 +289,7 @@ export default function WorkspaceSettingsPage() {
                         const now = new Date();
                         setCpDialogWs(ws);
                         setNewCpName('');
-                        setNewCpDate(now.toISOString().slice(0, 10));
+                        setNewCpDate(toLocalDateString(now));
                         setNewCpTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
                         setNewCpNote('');
                       }}>
@@ -488,7 +489,7 @@ export default function WorkspaceSettingsPage() {
                 <label className="text-sm font-medium">Date</label>
                 <DatePicker
                   value={newCpDate}
-                  onChange={(v) => setNewCpDate(v || new Date().toISOString().slice(0, 10))}
+                  onChange={(v) => setNewCpDate(v || toLocalDateString(new Date()))}
                   placeholder="Checkpoint date"
                   className="h-9 text-sm w-full"
                 />

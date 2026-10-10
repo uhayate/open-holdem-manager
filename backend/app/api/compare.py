@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query
-from app.db import get_read_cursor, get_hero_username, get_hero_player_id
+from app.db import get_read_cursor, get_hero_username, get_hero_player_id, normalize_date_to
 from app.models import PeriodStats, CompareResponse
 from app.stats_engine import compute_hero_stats, compute_population_stats
 
@@ -29,7 +29,7 @@ def _get_period_summary(
 
     if date_to:
         query += " AND h.played_at <= ?"
-        params.append(date_to)
+        params.append(normalize_date_to(date_to))
     if stakes:
         query += " AND h.stakes = ?"
         params.append(stakes)

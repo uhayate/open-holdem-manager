@@ -8,11 +8,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.parsers.common import ALL_POSITIONS
+
 if TYPE_CHECKING:
     from app.parsers.common import ParsedHand
 
 
-_POS_ORDER = {"SB": 0, "BB": 1, "EP": 2, "MP": 3, "CO": 4, "BTN": 5}
+# Later in this list == later in the postflop order == in position. Derived
+# from ALL_POSITIONS so a new table size can't silently fall back to 0 (which
+# would make such a player look like the SB, the most out-of-position seat).
+_POS_ORDER = {pos: i for i, pos in enumerate(ALL_POSITIONS)}
 
 
 def _find_action_order(actions: list[dict], username: str, action_type: str) -> int | None:

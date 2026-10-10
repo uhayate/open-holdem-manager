@@ -216,9 +216,13 @@ RE_SKIP = re.compile(
 )
 
 # Regex patterns for parsing
+# Header for a table with an ante carries a third amount:
+#   Hold'em No Limit ($0.02/$0.05($0.01)) - 2026/10/08 21:41:22
+# Group 5 is the ante (None when the table has none).
 RE_HEADER = re.compile(
     r"Poker Hand #(\w+): (?:Tournament #\S+, )?"
-    r"Hold'em No Limit \(\$([0-9.]+)/\$([0-9.]+)\)"
+    r"Hold'em No Limit \(\$([0-9.]+)/\$([0-9.]+)"
+    r"(?:\(\$([0-9.]+)\))?\)"
     r" - (\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})"
 )
 RE_TABLE = re.compile(
@@ -227,8 +231,9 @@ RE_TABLE = re.compile(
 RE_SEAT = re.compile(
     r"Seat (\d+): (.+?) \(\$([0-9.]+) in chips\)"
 )
+# GG writes "posts the ante" on ante tables and "posts ante" elsewhere
 RE_ANTE = re.compile(
-    r"^(.+?): posts ante \$([0-9.]+)"
+    r"^(.+?): posts (?:the )?ante \$([0-9.]+)"
 )
 RE_SMALL_BLIND = re.compile(
     r"^(.+?): posts small blind \$([0-9.]+)"
@@ -270,8 +275,14 @@ RE_BOARD = re.compile(r"Board \[(.+?)\]")
 RE_SUMMARY_POT = re.compile(
     r"Total pot \$([0-9.]+)"
 )
+# Every fee GG lists on the summary line. Jackpot/Bingo/Fortune/Tax are
+# siblings of Rake, not components of it — summing them all here is what
+# `total_fees` is for. Do NOT use this for the `rake` column.
 RE_SUMMARY_FEE = re.compile(
     r"(?:Rake|Jackpot|Bingo|Fortune|Tax) \$([0-9.]+)"
+)
+RE_SUMMARY_RAKE = re.compile(
+    r"Rake \$([0-9.]+)"
 )
 RE_SUMMARY_JACKPOT = re.compile(
     r"Jackpot \$([0-9.]+)"
@@ -342,7 +353,8 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
     hand_id = m.group(1)
     header_sb = Decimal(m.group(2))
     header_bb = Decimal(m.group(3))
-    played_at = datetime.strptime(m.group(4), "%Y/%m/%d %H:%M:%S")
+    header_ante = Decimal(m.group(4)) if m.group(4) else None
+    played_at = datetime.strptime(m.group(5), "%Y/%m/%d %H:%M:%S")
 
     # GGPoker has random byte corruption in hand history files that can hit
     # any dollar amount — header stakes, blind postings, bet sizes.
@@ -401,7 +413,15 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         header_bb, header_sb, posted_bb, posted_sb,
         preflop_amounts, _scanned_stacks,
     )
-    sb_amount = bb_amount / 2
+    # Don't assume SB == BB/2. On ante tables GG runs odd blind/ante combos
+    # (e.g. $0.02/$0.05 with a $0.01 ante), so the posted SB is the truth;
+    # header SB is the fallback when no SB line was captured.
+    if posted_sb is not None:
+        sb_amount = posted_sb
+    elif header_sb > 0:
+        sb_amount = header_sb
+    else:
+        sb_amount = bb_amount / 2
 
     def _fmt_stake(d: Decimal) -> str:
         if d == d.to_integral_value():
@@ -462,6 +482,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
     collected = {}  # username -> total amount collected
     total_rake = _ZERO
     total_jackpot = _ZERO
+    total_fees = _ZERO
     cash_drop_received = _ZERO
     went_to_showdown_players = set()
     in_showdown = False
@@ -549,9 +570,16 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         if in_summary:
             m = RE_SUMMARY_POT.search(line)
             if m:
-                # Sum all fees: Rake + Jackpot + Bingo + Fortune + Tax
+                # Rake is its own field; Jackpot/Bingo/Fortune/Tax are
+                # separate fees. total_rake must stay pure Rake, otherwise the
+                # jackpot gets charged twice downstream (once inside total_rake,
+                # once via per_player_jackpot). total_fees is every fee combined
+                # and is what the pot/EV math wants.
+                rm = RE_SUMMARY_RAKE.search(line)
+                if rm:
+                    total_rake += Decimal(rm.group(1))
                 for fee_m in RE_SUMMARY_FEE.finditer(line):
-                    total_rake += Decimal(fee_m.group(1))
+                    total_fees += Decimal(fee_m.group(1))
                 jm = RE_SUMMARY_JACKPOT.search(line)
                 if jm:
                     total_jackpot = Decimal(jm.group(1))
@@ -796,6 +824,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         collected=collected,
         total_rake=total_rake,
         total_jackpot=total_jackpot,
+        total_fees=total_fees,
         went_to_showdown_players=went_to_showdown_players,
         in_showdown=in_showdown,
         sb_player=sb_player,

@@ -110,7 +110,10 @@ function CheckboxOption({
   );
 }
 
-const POSITIONS = ['EP', 'MP', 'CO', 'BTN', 'SB', 'BB'];
+// Displayed in action order around the table. Kept as a literal list (rather
+// than derived) so the filter offers every position the backend can emit,
+// including the 8/9-max early seats that a 6-max session will never hit.
+const POSITIONS = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
 const RESULTS = [
   { value: '', label: 'All' },
   { value: 'won', label: 'Won (>0)' },

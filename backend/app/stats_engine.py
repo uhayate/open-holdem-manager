@@ -1,7 +1,23 @@
 import duckdb
 from app.models import HeroStats, PositionalStats, StatValue
+from app.parsers.common import ALL_POSITIONS
 
-POSITIONS = ["EP", "MP", "CO", "BTN", "SB", "BB"]
+
+def _normalize_date_to(value):
+    """Local import shim — `app.db` imports lazily from here, so importing it
+    at module scope would risk a cycle."""
+    from app.db import normalize_date_to
+    return normalize_date_to(value)
+
+# Every label the parser can emit. Wider tables (8/9-max) contribute extra
+# early positions rather than being folded into the 6-max buckets, so nothing
+# is silently dropped when such hands show up.
+POSITIONS = list(ALL_POSITIONS)
+
+# Late positions only. On a 6-max these are the last three before the blinds;
+# wider tables add LJ/HJ in front of CO and those are not counted as steal
+# spots here — revisit once real 8/9-max traffic says which reading is right.
+STEAL_POSITIONS = ["CO", "BTN", "SB"]
 
 # SQL aggregation query — computes all needed counts in one pass, grouped by position.
 # Returns ~6 rows instead of fetching 13k+ rows into Python.
@@ -285,7 +301,7 @@ def _compute_stats_from_query(
     stats.fold_to_squeeze = _sv("fold_to_squeeze", "fold_to_squeeze_opp")
 
     # Steal
-    stats.steal = _pos_steal("steal", "steal_opp", ["CO", "BTN", "SB"])
+    stats.steal = _pos_steal("steal", "steal_opp", STEAL_POSITIONS)
     stats.fold_to_3bet_steal = _pos_steal("steal_fold_to_3bet", "steal_faced_3bet", ["BTN", "SB"])
     stats.four_bet_steal = _pos_steal("steal_four_bet", "steal_faced_3bet", ["BTN", "SB"])
     stats.four_bet_fold_steal = _pos_steal("steal_4bet_fold", "steal_4bet_fold_opp", ["BTN", "SB"])
@@ -439,7 +455,7 @@ def compute_player_stats(
         params.append(date_from)
     if date_to:
         where += " AND h.played_at <= ?"
-        params.append(date_to)
+        params.append(_normalize_date_to(date_to))
 
     if last_n:
         cte_where = where

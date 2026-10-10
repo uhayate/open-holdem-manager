@@ -10,7 +10,7 @@ RE_CHECK = re.compile(r"^(.+?): checks")
 RE_CALL = re.compile(r"^(.+?): calls \$([0-9.]+)")
 RE_BET = re.compile(r"^(.+?): bets \$([0-9.]+)")
 RE_RAISE = re.compile(r"^(.+?): raises \$[0-9.]+ to \$([0-9.]+)")
-RE_BLIND = re.compile(r"^(.+?): posts (?:small blind|big blind|ante) \$([0-9.]+)")
+RE_BLIND = re.compile(r"^(.+?): posts (?:the )?(?:small blind|big blind|ante) \$([0-9.]+)")
 RE_STREET = re.compile(r"^\*\*\* (HOLE CARDS|FLOP|FIRST FLOP|SECOND FLOP|TURN|FIRST TURN|SECOND TURN|RIVER|FIRST RIVER|SECOND RIVER|FIRST SHOWDOWN|SECOND SHOWDOWN|SHOWDOWN|SUMMARY) \*\*\*")
 RE_ALL_IN = re.compile(r"and is all-in")
 

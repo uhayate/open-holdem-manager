@@ -18,7 +18,7 @@ function setGameModeParam(sp: URLSearchParams, gameMode: string | undefined) {
   }
 }
 
-/** Set position param, normalizing to uppercase (DB stores EP/MP/CO/BTN/SB/BB) */
+/** Set position param, normalizing to uppercase (DB stores UTG/HJ/CO/BTN/SB/BB) */
 function setPositionParam(sp: URLSearchParams, position: string | undefined) {
   if (position) sp.set('position', position.toUpperCase());
 }
@@ -87,8 +87,14 @@ export interface StatValue {
 
 export interface PositionalStats {
   total: StatValue;
-  ep: StatValue;
-  mp: StatValue;
+  /** Position keys mirror the backend labels, lowercased.
+   * 6-max populates utg/hj/co/btn/sb/bb; the extra early positions only
+   * appear once 8/9-max hands land in the database. */
+  utg: StatValue;
+  utg1: StatValue;
+  utg2: StatValue;
+  lj: StatValue;
+  hj: StatValue;
   co: StatValue;
   btn: StatValue;
   sb: StatValue;

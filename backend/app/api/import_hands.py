@@ -27,7 +27,18 @@ from concurrent.futures import ThreadPoolExecutor, Future
 try:
     from app.equity import calculate_headsup_equity as _calc_equity
 except ImportError:
+    # All-in EV silently falls back to actual winnings when this fails, which
+    # is indistinguishable from "EV happens to equal results". That is exactly
+    # how a packaging regression (eval7's pure-Python submodules not being
+    # bundled) disabled EV in the shipped installer without anyone noticing.
+    # Log loudly so the fallback is visible.
     _calc_equity = None
+    logging.getLogger(__name__).warning(
+        "Equity engine unavailable (eval7 failed to import) — all-in EV will "
+        "fall back to actual results. Check the PyInstaller build includes "
+        "'--collect-all eval7'.",
+        exc_info=True,
+    )
 
 router = APIRouter()
 
@@ -203,7 +214,9 @@ _STREET_ORDER = {"preflop": 0, "flop": 1, "turn": 2, "river": 3}
 def _compute_financials(parsed: ParsedHand):
     """Compute per-player investment and all-in EV for a parsed hand.
 
-    Returns (player_invested, all_in_ev_bb_map).
+    Returns (player_invested, all_in_ev_bb_map, cash_drop_share).
+    `cash_drop_share` is each player's pro-rata slice of any Cash Drop, which
+    the caller subtracts from `won` so promo money is not booked as profit.
     """
     player_invested = {s["username"]: _ZERO for s in parsed.seats}
 
@@ -226,6 +239,17 @@ def _compute_financials(parsed: ParsedHand):
                 if increment > 0:
                     player_invested[uname] += increment
                 street_put_in[uname] = amt
+
+    # Cash Drop is money GG injects into the pot. Nobody "invested" it, but the
+    # winner's `collected` includes their share of it, so without this the drop
+    # would be booked as profit and inflate bb/100. Strip each player's pro-rata
+    # share of the drop, weighted by how much they put in.
+    cash_drop_share: dict[str, Decimal] = {}
+    if parsed.cash_drop_received > 0:
+        total_invested = sum(player_invested.values())
+        if total_invested > 0:
+            for uname, inv in player_invested.items():
+                cash_drop_share[uname] = parsed.cash_drop_received * inv / total_invested
 
     # All-in EV calculation
     all_in_ev_bb_map: dict[str, float] = {}
@@ -279,14 +303,17 @@ def _compute_financials(parsed: ParsedHand):
                             sum(float(v) for v in player_invested.values())
                             - sum(float(v) for v in parsed.uncalled_returns.values())
                         )
-                        dist = total_risk - float(parsed.total_rake)
+                        dist = total_risk - float(parsed.total_fees)
+                        # The Cash Drop was never risked, so it must not be
+                        # treated as distributable winnings in the EV split.
+                        dist -= float(parsed.cash_drop_received)
                         bb = float(parsed.bb_amount)
                         all_in_ev_bb_map[p1] = (p1_eq * dist - p1_net) / bb
                         all_in_ev_bb_map[p2] = (p2_eq * dist - p2_net) / bb
                     except Exception:
                         pass
 
-    return player_invested, all_in_ev_bb_map
+    return player_invested, all_in_ev_bb_map, cash_drop_share
 
 
 def _build_batch_arrays(
@@ -322,7 +349,7 @@ def _build_batch_arrays(
             parsed.total_jackpot / max(num_winners, 1)
             if parsed.total_jackpot else _ZERO
         )
-        player_invested, all_in_ev_bb_map = financials
+        player_invested, all_in_ev_bb_map, cash_drop_share = financials
 
         # Append to hands columns (skip during rebuild — hands table is preserved)
         if hands_cols is not None:
@@ -352,7 +379,10 @@ def _build_batch_arrays(
             gross = parsed.collected.get(uname, Decimal("0"))
             uncalled = parsed.uncalled_returns.get(uname, Decimal("0"))
             invested = player_invested.get(uname, Decimal("0"))
-            net_won = float(gross + uncalled - invested)
+            # Strip this player's pro-rata slice of any Cash Drop — it was
+            # never risked, so counting it as profit would inflate bb/100.
+            drop_share = cash_drop_share.get(uname, _ZERO)
+            net_won = float(gross + uncalled - invested - drop_share)
             rake = float(per_player_rake) if uname in parsed.collected else 0.0
             jackpot = float(per_player_jackpot) if uname in parsed.collected else 0.0
             won_bb = net_won / bb_f if bb_f else 0.0

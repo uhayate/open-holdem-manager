@@ -1,6 +1,6 @@
 import type { HeroStats, DriftStat, StatValue } from '@/lib/api';
 import { Card } from '@/components/ui/card';
-import { PosTable, InlineStat, posRow, svDelta } from '@/components/stats/StatDisplay';
+import { PosTable, InlineStat, posRow, svDelta, type PositionKey } from '@/components/stats/StatDisplay';
 
 interface StatsCardProps {
   stats: HeroStats;
@@ -11,8 +11,8 @@ interface StatsCardProps {
   compareStats?: HeroStats;
 }
 
-const fullPosHeaders = ['Tot', 'EP', 'MP', 'CO', 'BTN', 'SB', 'BB'];
-const fullPosKeys: ('total' | 'ep' | 'mp' | 'co' | 'btn' | 'sb' | 'bb')[] = ['total', 'ep', 'mp', 'co', 'btn', 'sb', 'bb'];
+const fullPosHeaders = ['Tot', 'UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+const fullPosKeys: PositionKey[] = ['total', 'utg', 'hj', 'co', 'btn', 'sb', 'bb'];
 
 export default function StatsCard({ stats, decimals, driftMap, onStatClick, compareStats: cs }: StatsCardProps) {
   /** Shorthand: compute delta for two StatValues */

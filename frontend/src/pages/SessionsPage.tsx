@@ -578,7 +578,7 @@ function SessionDetail({ index }: { index: number }) {
                         }`}>
                           {Math.abs(wonUsd) < 0.005
                             ? '\u2014'
-                            : `${wonUsd < 0 ? '-' : ''}${Math.abs(wonUsd).toFixed(2)}$`}
+                            : `${wonUsd < 0 ? '-' : ''}$${Math.abs(wonUsd).toFixed(2)}`}
                         </TableCell>
                         <TableCell className="py-1.5 px-2 text-right text-[14px] text-text-muted whitespace-nowrap">
                           {formatRelativeDate(h.played_at)}

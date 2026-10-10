@@ -61,8 +61,14 @@ class StatValue(BaseModel):
 
 class PositionalStats(BaseModel):
     total: StatValue = StatValue()
-    ep: StatValue = StatValue()
-    mp: StatValue = StatValue()
+    # Keys match the parser's position labels (uppercased → lowercased).
+    # The early-position chain covers 6-max through 9-max; on a 6-max only
+    # utg/hj are ever populated and the rest stay at their empty default.
+    utg: StatValue = StatValue()
+    utg1: StatValue = StatValue()
+    utg2: StatValue = StatValue()
+    lj: StatValue = StatValue()
+    hj: StatValue = StatValue()
     co: StatValue = StatValue()
     btn: StatValue = StatValue()
     sb: StatValue = StatValue()

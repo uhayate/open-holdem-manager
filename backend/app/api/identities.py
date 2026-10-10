@@ -1,7 +1,7 @@
 import json
 
 from fastapi import APIRouter, HTTPException
-from app.db import get_db, db_lock, get_read_cursor
+from app.db import get_db, db_lock, get_read_cursor, normalize_date_to
 from app.models import (
     IdentityResponse, CreateIdentity, UpdateIdentity,
     AliasResponse, AddAlias, HeroStats,
@@ -296,7 +296,7 @@ def _compute_identity_stats(
         params.append(date_from)
     if date_to:
         where_parts.append("h.played_at <= ?")
-        params.append(date_to + " 23:59:59")
+        params.append(normalize_date_to(date_to))
 
     where_sql = " AND ".join(where_parts)
 

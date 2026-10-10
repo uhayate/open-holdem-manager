@@ -7,10 +7,15 @@ import time
 import threading
 from pathlib import Path
 
+from app.parsers.common import POSITIONS_BY_COUNT
+
 logger = logging.getLogger(__name__)
 
 # Bump this when stat_flags.py or parser logic changes to trigger auto-rebuild.
-STAT_VERSION = 4
+# 5: Cash Drop money was booked as profit (nobody "invested" it, but the
+#    winner's collected included it), inflating bb/100. Also re-derives the
+#    all-in EV, which had never been backfilled for older imports.
+STAT_VERSION = 5
 
 _data_dir = os.environ.get("OHM_DATA_DIR")
 if _data_dir:
@@ -50,6 +55,26 @@ _shutdown_requested = threading.Event()
 def shutdown_requested() -> bool:
     """True once the app has started shutting down."""
     return _shutdown_requested.is_set()
+
+
+def normalize_date_to(value: str | None) -> str | None:
+    """Expand a bare ``YYYY-MM-DD`` upper bound to the end of that day.
+
+    `played_at` is a TIMESTAMP, so comparing it against a bare date means
+    comparing against that day's 00:00 — silently dropping everything played
+    on the final day of the range. Callers pass this through, not the raw
+    value. An explicit time component is left alone.
+
+    Every endpoint that filters on a date range must use this. Lower bounds
+    need no equivalent: `>= YYYY-MM-DD` already means 00:00 of that day.
+    """
+    if not value:
+        return value
+    v = value.strip()
+    # DuckDB also accepts 'YYYY-MM-DDTHH:MM:SS'; treat T as "has a time".
+    if len(v) <= 10 and "T" not in v and " " not in v:
+        return v + " 23:59:59"
+    return v
 
 
 def request_shutdown() -> None:
@@ -592,8 +617,143 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
     # Add workspace_id to player_classifications for workspace-scoped classification
     _migrate_player_classifications_workspace(conn)
 
+    # Rename the early-position labels to the 6/8/9-max convention
+    _migrate_position_labels(conn)
+
+    # rake used to include the jackpot, which was then charged a second time
+    _migrate_rake_excludes_jackpot(conn)
+
     # Check stat version — trigger rebuild if outdated
     _check_stat_version(conn)
+
+
+# Labels the old parser could emit that the current one never does. If any row
+# still carries one of these, the hand predates the 6/8/9-max convention.
+_LEGACY_POSITION_LABELS = {"EP", "MP"}
+
+
+def _migrate_position_labels(conn: duckdb.DuckDBPyConnection) -> None:
+    """Re-derive position labels from seat order for pre-convention hands.
+
+    Positions are a function of (seat order, button seat, seat count), so the
+    robust repair is to recompute them rather than to string-rename the old
+    labels. A plain `EP -> UTG, MP -> HJ` rename is wrong for 7/8/9-handed
+    hands: those tables also used EP/MP, and renaming produced duplicate
+    labels (old 8-max `UTG EP MP HJ` became `UTG UTG HJ HJ`), because the
+    current tables use UTG1/LJ/UTG2 in the slots EP/MP used to occupy.
+
+    Re-deriving also means the result is exactly what a rebuild would produce,
+    so the migration and the STAT_VERSION rebuild agree.
+
+    Idempotent: it only looks at hands that still carry a legacy label.
+    """
+    legacy = conn.execute(
+        "SELECT COUNT(*) FROM hand_players WHERE position IN ('EP', 'MP')"
+    ).fetchone()[0]
+    if not legacy:
+        return
+
+    # Fully set-based, in a single UPDATE. Positions are a pure function of
+    # (seat, button seat, seat count), so they can be re-derived in SQL with
+    # window functions instead of looping in Python.
+    #
+    # Two DuckDB traps avoided here: executemany() runs one statement per row,
+    # and a multi-thousand-entry VALUES parameter list makes the binder fall
+    # back to importing numpy/pandas (absent here) — both hung long enough to
+    # be killed. A small inline mapping table has neither problem.
+    mapping_rows = []
+    for n, labels in sorted(POSITIONS_BY_COUNT.items()):
+        for rank, label in enumerate(labels, start=1):
+            mapping_rows.append(f"({n},{rank},'{label}')")
+    mapping_values = ",".join(mapping_rows)
+
+    conn.execute(f"""
+        WITH s AS (
+            SELECT hp.hand_id, hp.seat, h.button_seat
+            FROM hand_players hp
+            JOIN hands h ON h.id = hp.hand_id
+            WHERE hp.hand_id IN (
+                SELECT DISTINCT hand_id FROM hand_players
+                WHERE position IN ('EP', 'MP')
+            )
+            AND h.button_seat IS NOT NULL
+        ),
+        piv AS (
+            -- The seat the clockwise order starts from. Mirrors the three
+            -- branches in parsers.common._assign_positions: the actual button
+            -- if it is occupied, else the nearest seat below it, else the
+            -- highest seat.
+            SELECT hand_id,
+                   COALESCE(
+                       MAX(CASE WHEN seat = button_seat THEN seat END),
+                       MAX(CASE WHEN seat < button_seat THEN seat END),
+                       MAX(seat)
+                   ) AS pivot
+            FROM s GROUP BY hand_id
+        ),
+        ranked AS (
+            SELECT s.hand_id, s.seat,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY s.hand_id
+                       ORDER BY CASE WHEN s.seat >= piv.pivot
+                                     THEN s.seat ELSE s.seat + 1000 END
+                   ) AS rn,
+                   COUNT(*) OVER (PARTITION BY s.hand_id) AS n
+            FROM s JOIN piv ON piv.hand_id = s.hand_id
+        ),
+        mapping(n, rn, label) AS (VALUES {mapping_values})
+        UPDATE hand_players hp
+        SET position = m.label
+        FROM ranked r
+        JOIN mapping m ON m.n = r.n AND m.rn = r.rn
+        WHERE hp.hand_id = r.hand_id AND hp.seat = r.seat
+    """)
+
+    logger.info("Position label migration: corrected %d legacy rows", legacy)
+
+
+def _migrate_rake_excludes_jackpot(conn: duckdb.DuckDBPyConnection) -> None:
+    """Un-double-count the jackpot in hand_players.rake / rake_bb.
+
+    The parser used to fold Jackpot into `total_rake`, and the importer then
+    also charged `per_player_jackpot` on top, so the two columns together
+    exceeded the fee actually taken. Rows written by the old code have
+    `rake == true_rake + jackpot`, so subtracting jackpot restores the exact
+    pure-rake value — no re-parse needed.
+
+    Guarded by a settings flag rather than `jackpot > 0` alone, because a
+    legitimate future hand could have rake > 0 and jackpot == 0 and re-running
+    must not touch it.
+    """
+    row = conn.execute(
+        "SELECT value FROM settings WHERE key = 'rake_jackpot_split'"
+    ).fetchone()
+    if row is not None:
+        return
+
+    affected = conn.execute(
+        "SELECT COUNT(*) FROM hand_players WHERE jackpot > 0"
+    ).fetchone()[0]
+
+    if affected:
+        conn.execute(
+            "UPDATE hand_players SET rake = rake - jackpot WHERE jackpot > 0"
+        )
+        # rake_bb is the same value divided by the hand's BB; recompute it from
+        # the corrected rake rather than subtracting there too (rounding).
+        conn.execute(
+            """
+            UPDATE hand_players hp
+            SET rake_bb = hp.rake / h.bb_amount
+            FROM hands h
+            WHERE hp.hand_id = h.id AND hp.jackpot > 0 AND h.bb_amount > 0
+            """
+        )
+        logger.info(
+            "Rake/jackpot migration: corrected %d rows", affected
+        )
+
+    conn.execute("INSERT OR REPLACE INTO settings VALUES ('rake_jackpot_split', '1')")
 
 
 def _migrate_to_workspaces(conn: duckdb.DuckDBPyConnection) -> None:
