@@ -403,6 +403,20 @@ export default function GraphPage() {
   const sdRateBB = n > 0 ? (sdBB / n) * 100 : 0;
   const nsdRateBB = n > 0 ? (nsdBB / n) * 100 : 0;
 
+  // Pre-deduction ("gross") figures: what the results would have been with no
+  // rake and no jackpot taken. Both are already charged out of the winner's
+  // collected amount, so adding them back reconstructs the gross result — the
+  // same number the fee drag is measured against.
+  const grossBB = wonBB + rakeBB + jackpotBB;
+  const grossUSD = wonUSD + rakeUSD + jackpotUSD;
+  const grossRateBB = n > 0 ? (grossBB / n) * 100 : 0;
+  const grossEvBB = evBB + rakeBB + jackpotBB;
+  const grossEvUSD = evUSD + rakeUSD + jackpotUSD;
+  const grossEvRateBB = n > 0 ? (grossEvBB / n) * 100 : 0;
+  // Only worth showing when fees were actually charged; otherwise the gross
+  // line would just repeat the net figure above it.
+  const hasFees = rakeBB + jackpotBB > 0;
+
   const totalHrs = totalSessionHours(sessions);
   const handsPerHour = totalHrs > 0 ? Math.round(n / totalHrs) : 0;
   const usdPerHour = totalHrs > 0 ? wonUSD / totalHrs : 0;
@@ -734,6 +748,11 @@ export default function GraphPage() {
               <div className="text-sm font-mono text-text-muted">bb/100</div>
               <div className="text-[10px] text-text-muted uppercase tracking-wide">Won</div>
               <div className="text-[10px] text-text-muted uppercase tracking-wide">Rate</div>
+              {hasFees && (
+                <div className="col-span-2 mt-1 text-[11px] font-mono text-text-muted">
+                  Gross {fmtUSD(grossUSD)} · {fmtBB(grossBB)} · {grossRateBB.toFixed(2)} bb/100
+                </div>
+              )}
             </div>
             {/* EV */}
             <div className="px-4 py-3 border-l border-border grid grid-cols-2 gap-x-4">
@@ -745,6 +764,11 @@ export default function GraphPage() {
                   <div className="text-sm font-mono text-text-muted">EV bb/100</div>
                   <div className="text-[10px] text-text-muted uppercase tracking-wide">Won EV</div>
                   <div className="text-[10px] text-text-muted uppercase tracking-wide">EV Rate</div>
+                  {hasFees && (
+                    <div className="col-span-2 mt-1 text-[11px] font-mono text-text-muted">
+                      Gross {fmtUSD(grossEvUSD)} · {fmtBB(grossEvBB)} · {grossEvRateBB.toFixed(2)} bb/100
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
