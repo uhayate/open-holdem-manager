@@ -18,7 +18,6 @@ import {
   getHands,
 } from '@/lib/api';
 import type {
-  SessionDetailResponse,
   SessionGraphPoint,
   SessionBigHand,
 } from '@/lib/api';
@@ -100,14 +99,6 @@ function SessionList() {
   });
 
   const sessions = data?.sessions ?? [];
-  const latestIndex = sessions.length > 0 ? sessions[0].session_index : undefined;
-
-  // Fetch latest session detail for hero card
-  const { data: latestDetail } = useQuery({
-    queryKey: queryKeys.sessions.detail(latestIndex!),
-    queryFn: () => getSessionDetail(latestIndex!),
-    enabled: latestIndex !== undefined,
-  });
 
   if (!isPending && sessions.length === 0) {
     return (
@@ -152,21 +143,12 @@ function SessionList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions.map((s, i) => (
-                  i === 0 ? (
-                    <LatestSessionRow
-                      key={s.session_index}
-                      summary={s}
-                      detail={latestDetail ?? null}
-                      onClick={() => navigate(`/sessions/${s.session_index}`)}
-                    />
-                  ) : (
-                    <SessionRow
-                      key={s.session_index}
-                      session={s}
-                      onClick={() => navigate(`/sessions/${s.session_index}`)}
-                    />
-                  )
+                {sessions.map((s) => (
+                  <SessionRow
+                    key={s.session_index}
+                    session={s}
+                    onClick={() => navigate(`/sessions/${s.session_index}`)}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -666,158 +648,6 @@ function SessionRow({
       <TableCell className={`px-3 py-1.5 font-mono text-right ${colorVal(s.bb_per_100)}`}>{s.bb_per_100.toFixed(2)}</TableCell>
       <TableCell className={`px-3 py-1.5 font-mono text-right ${colorVal(s.ev_bb_per_100)}`}>{s.ev_bb_per_100.toFixed(2)}</TableCell>
     </TableRow>
-  );
-}
-
-function LatestSessionRow({
-  summary: s,
-  detail,
-  onClick,
-}: {
-  summary: { session_index: number; start_time: string; end_time: string; duration_minutes: number; hands: number; stakes: string[]; won_usd: number; won_bb: number; ev_usd: number; ev_bb: number; bb_per_100: number; ev_bb_per_100: number; rake_usd: number; rake_bb: number };
-  detail: SessionDetailResponse | null;
-  onClick: () => void;
-}) {
-  const graph = useMemo(() => detail?.graph ?? [], [detail]);
-  const stats = detail?.stats;
-  const hasEVData = useMemo(() => graph.some(d => d.cumulative_ev_bb !== d.cumulative_bb), [graph]);
-  const durationHrs = s.duration_minutes / 60;
-
-  return (
-    <>
-      {/* Normal row cells */}
-      <TableRow
-        className="cursor-pointer hover:bg-surface-hover transition-colors border-b-0"
-        onClick={onClick}
-      >
-        <TableCell className="px-3 py-1.5 font-mono text-text">
-          {formatSessionDate(s.start_time)}
-          <span className="text-text-muted ml-1.5 text-xs">{formatTime(s.start_time)}</span>
-        </TableCell>
-        <TableCell className="px-3 py-1.5 font-mono text-text-muted text-right">
-          {formatDuration(s.duration_minutes)}
-        </TableCell>
-        <TableCell className="px-3 py-1.5 font-mono text-text text-right">{s.hands}</TableCell>
-        <TableCell className="px-3 py-1.5">
-          <div className="flex flex-wrap gap-1">
-            {s.stakes.map(st => (
-              <Badge key={st} variant="secondary" className="text-[11px] px-1.5 py-0">{formatStakes(st)}</Badge>
-            ))}
-          </div>
-        </TableCell>
-        <TableCell className={`px-3 py-1.5 font-mono text-right ${colorVal(s.won_usd)}`}>{fmtUSD(s.won_usd)}</TableCell>
-        <TableCell className={`px-3 py-1.5 font-mono text-right ${colorVal(s.bb_per_100)}`}>{s.bb_per_100.toFixed(2)}</TableCell>
-        <TableCell className={`px-3 py-1.5 font-mono text-right ${colorVal(s.ev_bb_per_100)}`}>{s.ev_bb_per_100.toFixed(2)}</TableCell>
-      </TableRow>
-
-      {/* Expanded detail row */}
-      <TableRow className="hover:bg-transparent cursor-pointer" onClick={onClick}>
-        <TableCell colSpan={7} className="p-0">
-          <div className="grid grid-cols-[1fr_260px] border-t border-border/50">
-            {/* Mini graph */}
-            <div className="py-1 pl-2 pr-0">
-              {graph.length > 0 ? (
-                <ResponsiveContainer width="100%" height={140}>
-                  <ComposedChart data={graph} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-                    <defs>
-                      <linearGradient id="latestGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid vertical={false} stroke="oklch(0.268 0.007 34.298)" />
-                    <XAxis dataKey="hand_number" type="number" domain={[0, 'dataMax']} hide />
-                    <YAxis
-                      stroke="oklch(0.553 0.013 58.071)"
-                      tick={{ fontSize: 10, fill: 'oklch(0.553 0.013 58.071)' }}
-                      axisLine={false} tickLine={false} width={40}
-                    />
-                    <ReferenceLine y={0} stroke="oklch(0.553 0.013 58.071 / 50%)" strokeDasharray="4 4" />
-                    <Area
-                      type="monotone" dataKey="cumulative_bb" name="cumulative_bb"
-                      fill="url(#latestGradient)" stroke="#fbbf24" strokeWidth={2}
-                      dot={false} connectNulls isAnimationActive={false} baseValue={0}
-                    />
-                    {hasEVData && (
-                      <Line
-                        type="monotone" dataKey="cumulative_ev_bb" name="cumulative_ev_bb"
-                        stroke="#06b6d4" strokeWidth={1.5} dot={false} connectNulls
-                        strokeDasharray="6 3" opacity={0.8} isAnimationActive={false}
-                      />
-                    )}
-                    <Line
-                      type="monotone" dataKey="cumulative_showdown_bb" name="cumulative_showdown_bb"
-                      stroke="#22c55e" strokeWidth={1.5} dot={false} connectNulls
-                      isAnimationActive={false}
-                    />
-                    <Line
-                      type="monotone" dataKey="cumulative_nonshowdown_bb" name="cumulative_nonshowdown_bb"
-                      stroke="#ef4444" strokeWidth={1.5} dot={false} connectNulls
-                      isAnimationActive={false}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[140px] flex items-center justify-center">
-                  <Skeleton className="h-[120px] w-full rounded" />
-                </div>
-              )}
-            </div>
-
-            {/* Key stats */}
-            <div className="border-l border-border/50 px-4 py-2 flex flex-col justify-center gap-1">
-              <div className="grid grid-cols-2 gap-x-3">
-                <div className={`text-lg font-bold font-mono ${clr(s.won_usd)}`}>{fmtUSD(s.won_usd)}</div>
-                <div className={`text-lg font-bold font-mono ${clr(s.bb_per_100)}`}>{s.bb_per_100.toFixed(2)}</div>
-                <div className={`text-xs font-mono ${clr(s.won_bb)}`}>{fmtBB(s.won_bb)}</div>
-                <div className="text-xs font-mono text-text-muted">bb/100</div>
-              </div>
-              {hasEVData && (
-                <div className="grid grid-cols-2 gap-x-3 pt-1 border-t border-border/50">
-                  <div className={`text-sm font-bold font-mono ${clr(s.ev_usd)}`}>{fmtUSD(s.ev_usd)}</div>
-                  <div className={`text-sm font-bold font-mono ${clr(s.ev_bb_per_100)}`}>{s.ev_bb_per_100.toFixed(2)}</div>
-                  <div className="text-[10px] text-text-muted">EV Won</div>
-                  <div className="text-[10px] text-text-muted">EV bb/100</div>
-                </div>
-              )}
-              <div className="flex items-center gap-3 pt-1 border-t border-border/50 text-xs text-text-muted font-mono">
-                <span className={durationHrs > 0 ? clr(stats?.usd_per_hour ?? 0) : ''}>
-                  {durationHrs > 0 && stats ? `${stats.usd_per_hour >= 0 ? '' : '-'}$${Math.abs(stats.usd_per_hour).toFixed(2)}/hr` : '\u2014'}
-                </span>
-                <span>{s.hands} hands</span>
-                <span>{stats?.hands_per_hour ? `${Math.round(stats.hands_per_hour)}/hr` : ''}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Play stats strip */}
-          {stats && (
-            <div className="grid grid-cols-9 gap-px bg-border border-t border-border/50">
-              <MiniStatBox label="VPIP" value={stats.vpip_pct} />
-              <MiniStatBox label="PFR" value={stats.pfr_pct} />
-              <MiniStatBox label="3-Bet" value={stats.three_bet_pct} />
-              <MiniStatBox label="CBet" value={stats.cbet_flop_pct} />
-              <MiniStatBox label="WTSD" value={stats.wtsd_pct} />
-              <MiniStatBox label="W$SD" value={stats.wsd_pct} />
-              <MiniStatBox label="WWSF" value={stats.wwsf_pct} />
-              <MiniStatBox label="Steal" value={stats.steal_pct} />
-              <MiniStatBox label="AFq" value={stats.afq_flop_pct} />
-            </div>
-          )}
-        </TableCell>
-      </TableRow>
-    </>
-  );
-}
-
-function MiniStatBox({ label, value }: { label: string; value: number | null }) {
-  return (
-    <div className="bg-background px-2 py-1.5 text-center">
-      <div className="text-sm font-bold font-mono text-text">
-        {value !== null ? `${value.toFixed(1)}` : '\u2014'}
-      </div>
-      <div className="text-[9px] text-text-muted uppercase tracking-wide">{label}</div>
-    </div>
   );
 }
 
