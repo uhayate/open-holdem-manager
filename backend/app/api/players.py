@@ -4,6 +4,7 @@ from typing import Optional
 import math
 
 from app.db import get_db, db_lock, get_read_cursor, get_hero_player_id
+from app.parsers.common import POSITION_DISPLAY_ORDER
 from app.stats_engine import compute_player_stats
 from app.models import HeroStats
 
@@ -315,8 +316,13 @@ def get_head_to_head(player_id: int, workspace_id: int = Query(1)):
         JOIN hands h ON hero.hand_id = h.id AND hero.workspace_id = h.workspace_id
         WHERE hero.player_id = ? AND h.workspace_id = ?
         GROUP BY hero.position
-        ORDER BY hero.position
     """, [player_id, hero_id, workspace_id]).fetchall()
+
+    # Order by table position (UTG first, blinds last). A plain ORDER BY on the
+    # label sorts alphabetically -> BB, BTN, CO, HJ, SB, UTG, which reads as
+    # noise; the hand count is small so sort in Python against the shared order.
+    _pos_rank = {p: i for i, p in enumerate(POSITION_DISPLAY_ORDER)}
+    rows = sorted(rows, key=lambda r: _pos_rank.get(r[0], len(_pos_rank)))
 
     if not rows:
         return HeadToHeadResponse(rows=[], total_hands=0, total_won_bb=0, overall_bb_per_100=0)

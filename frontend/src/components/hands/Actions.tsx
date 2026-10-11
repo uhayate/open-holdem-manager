@@ -26,7 +26,10 @@ export function actionTitle(items: ActionItem[], precision: number, trimFolds?: 
   return display.map(a => `${a.a}${a.v != null ? formatValue(a.v, precision) : ''}`).join(' ');
 }
 
-export default function Actions({ items, trimFolds, precision = 0 }: { items: ActionItem[]; trimFolds?: boolean; precision?: number }) {
+// Default to 1 decimal. Open sizes are routinely 2.5 / 3.5 BB, and a plain
+// Math.round turns those into 3 / 4 — a different, wrong-looking bet size.
+// A caller can still pass 0 for the rounded view.
+export default function Actions({ items, trimFolds, precision = 1 }: { items: ActionItem[]; trimFolds?: boolean; precision?: number }) {
   if (!items || items.length === 0) return null;
   let display = items;
   if (trimFolds) {

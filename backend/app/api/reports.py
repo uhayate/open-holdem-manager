@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
 from app.db import get_read_cursor, get_hero_player_id, normalize_date_to
+from app.parsers.common import POSITION_DISPLAY_ORDER
 from app.models import GraphPoint, GraphResponse, VarianceStats, SessionMarker, FilterOptions, StakeBreakdown, MonthBreakdown, PositionBreakdown, ResultsBreakdown, DriftStat, DriftResponse
 import math
 from datetime import datetime, timedelta
@@ -335,7 +336,7 @@ def get_breakdown(
         ))
 
     # By position — read order follows the action order around the table
-    pos_order = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB']
+    pos_order = POSITION_DISPLAY_ORDER
     pos_rows = db.execute(
         f"""{base_cte}
         SELECT position, COUNT(*), SUM(won_bb_v), SUM(won_usd_v), SUM(ev_bb_v),

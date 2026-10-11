@@ -85,7 +85,7 @@ export default function HandExplorer({
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState(false);
-  const [bbPrecision, setBbPrecision] = useState<0 | 1>(0);
+  const [bbPrecision, setBbPrecision] = useState<0 | 1>(1);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');

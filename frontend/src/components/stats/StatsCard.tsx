@@ -77,10 +77,10 @@ export default function StatsCard({ stats, decimals, driftMap, onStatClick, comp
         <div className="text-[11px] font-bold uppercase tracking-wider text-primary">Steal</div>
       </div>
       <div className="flex flex-col lg:flex-row">
-        {/* Left: Steal table (Total, BTN, SB) */}
+        {/* Left: Steal table (Total, CO, BTN, SB) */}
         <div className="flex-1 min-w-0 overflow-x-auto lg:border-r border-border">
           <PosTable
-            headers={['Tot', 'BTN', 'SB']}
+            headers={['Tot', 'CO', 'BTN', 'SB']}
             defaultDecimals={decimals}
             driftMap={driftMap}
             onStatClick={onStatClick}
@@ -89,6 +89,7 @@ export default function StatsCard({ stats, decimals, driftMap, onStatClick, comp
                 label: 'Steal',
                 cells: [
                   sc(stats.steal.total, 'total', cs?.steal.total, { statKey: 'steal', drillKey: 'steal' }),
+                  sc(stats.steal.co, 'co', cs?.steal.co, { statKey: 'steal', drillKey: 'steal' }),
                   sc(stats.steal.btn, 'btn', cs?.steal.btn, { statKey: 'steal', drillKey: 'steal' }),
                   sc(stats.steal.sb, 'sb', cs?.steal.sb, { statKey: 'steal', drillKey: 'steal' }),
                 ],
@@ -97,6 +98,7 @@ export default function StatsCard({ stats, decimals, driftMap, onStatClick, comp
                 label: 'Fold to 3Bet',
                 cells: [
                   sc(stats.fold_to_3bet_steal.total, 'total', cs?.fold_to_3bet_steal.total, { statKey: 'fold_to_3bet', drillKey: 'fold_to_3bet' }),
+                  sc(stats.fold_to_3bet_steal.co, 'co', cs?.fold_to_3bet_steal.co, { statKey: 'fold_to_3bet', drillKey: 'fold_to_3bet' }),
                   sc(stats.fold_to_3bet_steal.btn, 'btn', cs?.fold_to_3bet_steal.btn, { statKey: 'fold_to_3bet', drillKey: 'fold_to_3bet' }),
                   sc(stats.fold_to_3bet_steal.sb, 'sb', cs?.fold_to_3bet_steal.sb, { statKey: 'fold_to_3bet', drillKey: 'fold_to_3bet' }),
                 ],
@@ -105,6 +107,7 @@ export default function StatsCard({ stats, decimals, driftMap, onStatClick, comp
                 label: '4-Bet',
                 cells: [
                   sc(stats.four_bet_steal.total, 'total', cs?.four_bet_steal.total, { statKey: 'four_bet', drillKey: 'four_bet' }),
+                  sc(stats.four_bet_steal.co, 'co', cs?.four_bet_steal.co, { statKey: 'four_bet', drillKey: 'four_bet' }),
                   sc(stats.four_bet_steal.btn, 'btn', cs?.four_bet_steal.btn, { statKey: 'four_bet', drillKey: 'four_bet' }),
                   sc(stats.four_bet_steal.sb, 'sb', cs?.four_bet_steal.sb, { statKey: 'four_bet', drillKey: 'four_bet' }),
                 ],
@@ -113,6 +116,7 @@ export default function StatsCard({ stats, decimals, driftMap, onStatClick, comp
                 label: '4-Bet-Fold',
                 cells: [
                   sc(stats.four_bet_fold_steal.total, 'total', cs?.four_bet_fold_steal.total, { drillKey: 'four_bet_fold_steal' }),
+                  sc(stats.four_bet_fold_steal.co, 'co', cs?.four_bet_fold_steal.co, { drillKey: 'four_bet_fold_steal' }),
                   sc(stats.four_bet_fold_steal.btn, 'btn', cs?.four_bet_fold_steal.btn, { drillKey: 'four_bet_fold_steal' }),
                   sc(stats.four_bet_fold_steal.sb, 'sb', cs?.four_bet_fold_steal.sb, { drillKey: 'four_bet_fold_steal' }),
                 ],

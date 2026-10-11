@@ -81,6 +81,13 @@ ALL_POSITIONS = [
     "SB", "BB", "UTG", "UTG1", "UTG2", "LJ", "HJ", "CO", "BTN",
 ]
 
+# Order to render position columns and tables in: earliest to act first, blinds
+# last (UTG, UTG1, ..., CO, BTN, SB, BB). A rotation of ALL_POSITIONS — derive
+# it rather than writing a second list, so tables can't drift out of sync.
+# Note this is NOT sorted alphabetically: plain `ORDER BY position` puts BB
+# first and UTG last, which reads as noise in a HUD table.
+POSITION_DISPLAY_ORDER = ALL_POSITIONS[2:] + ALL_POSITIONS[:2]
+
 
 def _assign_positions(seats: list[dict], button_seat: int, table_size: int) -> None:
     """Assign position labels to seated players based on button seat.

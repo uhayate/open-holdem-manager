@@ -302,9 +302,9 @@ def _compute_stats_from_query(
 
     # Steal
     stats.steal = _pos_steal("steal", "steal_opp", STEAL_POSITIONS)
-    stats.fold_to_3bet_steal = _pos_steal("steal_fold_to_3bet", "steal_faced_3bet", ["BTN", "SB"])
-    stats.four_bet_steal = _pos_steal("steal_four_bet", "steal_faced_3bet", ["BTN", "SB"])
-    stats.four_bet_fold_steal = _pos_steal("steal_4bet_fold", "steal_4bet_fold_opp", ["BTN", "SB"])
+    stats.fold_to_3bet_steal = _pos_steal("steal_fold_to_3bet", "steal_faced_3bet", STEAL_POSITIONS)
+    stats.four_bet_steal = _pos_steal("steal_four_bet", "steal_faced_3bet", STEAL_POSITIONS)
+    stats.four_bet_fold_steal = _pos_steal("steal_4bet_fold", "steal_4bet_fold_opp", STEAL_POSITIONS)
 
     # vs Steal
     stats.vs_steal_fold = _pos_steal("fold_to_steal", "faced_steal", ["SB", "BB"])
