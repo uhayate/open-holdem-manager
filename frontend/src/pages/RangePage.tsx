@@ -296,22 +296,22 @@ export default function RangePage() {
                 same structure and only the values change; the empty state
                 keeps the layout alive with dashes instead of collapsing it. */}
             <Card className="gap-0 py-0 p-3 mb-2">
-              <div className="flex items-center justify-between mb-2 min-h-[32px]">
-                {detail ? (
-                  <>
-                    <span className="text-2xl font-bold font-mono">{activeCombo}</span>
-                    <span className="text-sm text-text-muted">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-2xl font-bold font-mono ${detail ? '' : 'invisible'}`}>
+                  {activeCombo ?? ''}
+                </span>
+                <span className="text-sm text-text-muted">
+                  {detail ? (
+                    <>
                       {detail.hands} hands
                       {detail.hands < MIN_SAMPLE && (
                         <span className="text-yellow ml-1">(low sample)</span>
                       )}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-[15px] text-text-muted">
-                    Hover or click a cell to see details
-                  </span>
-                )}
+                    </>
+                  ) : (
+                    'Hover or click a cell to see details'
+                  )}
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[15px]">
                 {detail ? (
