@@ -34,7 +34,9 @@ function getDateRange(preset: string, dateFrom: string, dateTo: string): { from?
       return { from: toLocalDateString(today) };
     case 'week': {
       const d = new Date(today);
-      d.setDate(d.getDate() - d.getDay());
+      // Monday-first; getDay() is 0 for Sunday, so shift Sunday back 6 days.
+      const dow = d.getDay();
+      d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
       return { from: toLocalDateString(d) };
     }
     case 'month':
