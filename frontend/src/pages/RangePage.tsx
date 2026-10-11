@@ -307,9 +307,8 @@ export default function RangePage() {
                 card, so its height must not depend on whether a combo is
                 hovered: growing on hover pushes those lists out from under the
                 pointer, which fires mouseleave, shrinks the card, and pulls
-                them back — an infinite flicker. So the card always renders the
-                same structure and only the values change; the empty state
-                keeps the layout alive with dashes instead of collapsing it. */}
+                them back. Every element below therefore renders in both states
+                and only the text differs. */}
             <Card className="gap-0 py-0 p-3 mb-2">
               <div className="flex items-center justify-between mb-2">
                 <span className={`text-2xl font-bold font-mono ${detail ? '' : 'invisible'}`}>
@@ -328,24 +327,22 @@ export default function RangePage() {
                   )}
                 </span>
               </div>
+              {/* Always nine DetailRows, in both states. The empty state used to
+                  render label="" and the real state a label, and because the
+                  row is an items-baseline flex the label-less span dropped out
+                  of baseline alignment, so the nine rows were not the same
+                  height as the filled ones. Labels are therefore always
+                  rendered and only the values fall back to a dash. */}
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[15px]">
-                {detail ? (
-                  <>
-                    <DetailRow label="Won" value={`${detail.won_bb >= 0 ? '+' : ''}${detail.won_bb.toFixed(1)} BB`} color={detail.won_bb >= 0 ? 'text-green' : 'text-red'} />
-                    <DetailRow label="bb/100" value={detail.bb_per_100.toFixed(1)} color={detail.bb_per_100 >= 0 ? 'text-green' : 'text-red'} />
-                    <DetailRow label="EV Won" value={`${detail.ev_bb >= 0 ? '+' : ''}${detail.ev_bb.toFixed(1)} BB`} color={detail.ev_bb >= 0 ? 'text-green' : 'text-red'} />
-                    <DetailRow label="EV bb/100" value={detail.ev_bb_per_100.toFixed(1)} color={detail.ev_bb_per_100 >= 0 ? 'text-green' : 'text-red'} />
-                    <DetailRow label="VPIP" value={`${detail.hands > 0 ? ((detail.vpip / detail.hands) * 100).toFixed(0) : 0}%`} />
-                    <DetailRow label="PFR" value={`${detail.hands > 0 ? ((detail.pfr / detail.hands) * 100).toFixed(0) : 0}%`} />
-                    <DetailRow label="3-Bet" value={`${detail.hands > 0 ? ((detail.three_bet / detail.hands) * 100).toFixed(0) : 0}%`} />
-                    <DetailRow label="WTSD" value={detail.wtsd_opp > 0 ? `${((detail.wtsd / detail.wtsd_opp) * 100).toFixed(0)}%` : '--'} sub={detail.wtsd_opp > 0 ? `${detail.wtsd}/${detail.wtsd_opp}` : undefined} />
-                    <DetailRow label="W$SD" value={detail.wsd_opp > 0 ? `${((detail.wsd / detail.wsd_opp) * 100).toFixed(0)}%` : '--'} sub={detail.wsd_opp > 0 ? `${detail.wsd}/${detail.wsd_opp}` : undefined} />
-                  </>
-                ) : (
-                  Array.from({ length: 9 }, (_, i) => (
-                    <DetailRow key={i} label="" value="—" />
-                  ))
-                )}
+                <DetailRow label="Won" value={detail ? `${detail.won_bb >= 0 ? '+' : ''}${detail.won_bb.toFixed(1)} BB` : '—'} color={detail ? (detail.won_bb >= 0 ? 'text-green' : 'text-red') : undefined} />
+                <DetailRow label="bb/100" value={detail ? detail.bb_per_100.toFixed(1) : '—'} color={detail ? (detail.bb_per_100 >= 0 ? 'text-green' : 'text-red') : undefined} />
+                <DetailRow label="EV Won" value={detail ? `${detail.ev_bb >= 0 ? '+' : ''}${detail.ev_bb.toFixed(1)} BB` : '—'} color={detail ? (detail.ev_bb >= 0 ? 'text-green' : 'text-red') : undefined} />
+                <DetailRow label="EV bb/100" value={detail ? detail.ev_bb_per_100.toFixed(1) : '—'} color={detail ? (detail.ev_bb_per_100 >= 0 ? 'text-green' : 'text-red') : undefined} />
+                <DetailRow label="VPIP" value={detail ? `${detail.hands > 0 ? ((detail.vpip / detail.hands) * 100).toFixed(0) : 0}%` : '—'} />
+                <DetailRow label="PFR" value={detail ? `${detail.hands > 0 ? ((detail.pfr / detail.hands) * 100).toFixed(0) : 0}%` : '—'} />
+                <DetailRow label="3-Bet" value={detail ? `${detail.hands > 0 ? ((detail.three_bet / detail.hands) * 100).toFixed(0) : 0}%` : '—'} />
+                <DetailRow label="WTSD" value={detail ? (detail.wtsd_opp > 0 ? `${((detail.wtsd / detail.wtsd_opp) * 100).toFixed(0)}%` : '--') : '—'} sub={detail && detail.wtsd_opp > 0 ? `${detail.wtsd}/${detail.wtsd_opp}` : undefined} />
+                <DetailRow label="W$SD" value={detail ? (detail.wsd_opp > 0 ? `${((detail.wsd / detail.wsd_opp) * 100).toFixed(0)}%` : '--') : '—'} sub={detail && detail.wsd_opp > 0 ? `${detail.wsd}/${detail.wsd_opp}` : undefined} />
               </div>
             </Card>
 
