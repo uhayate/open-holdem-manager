@@ -116,7 +116,10 @@ export default function App() {
               <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
               <AppBreadcrumb />
             </header>
-            <main className="flex-1 p-4">
+            {/* min-w-0: a flex child defaults to min-width:auto, so a wide
+                table inside would stretch this column past the viewport and
+                make the whole page scroll sideways. */}
+            <main className="flex-1 min-w-0 p-4">
               <Routes>
                 <Route path="/" element={<Navigate to="/graph" replace />} />
                 <Route path="/stats" element={<StatsPage />} />

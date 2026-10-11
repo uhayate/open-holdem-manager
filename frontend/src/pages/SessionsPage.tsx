@@ -542,12 +542,9 @@ function SessionDetail({ index }: { index: number }) {
                     <TableHead className="py-2 pl-2 pr-1.5 h-auto">River</TableHead>
                     <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
                     <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
-                    {/* Stakes and Date repeat what the session header shows, so
-                        they are the first to go when the window is narrow; the
-                        hand/action/result columns always stay. */}
-                    <TableHead className="py-2 pl-2 pr-1.5 h-auto hidden xl:table-cell">Stakes</TableHead>
+                    <TableHead className="py-2 pl-2 pr-1.5 h-auto">Stakes</TableHead>
                     <TableHead className="py-2 px-1.5 h-auto text-right">Won</TableHead>
-                    <TableHead className="py-2 px-1.5 h-auto text-right whitespace-nowrap hidden 2xl:table-cell">Date</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto text-right whitespace-nowrap">Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -594,7 +591,7 @@ function SessionDetail({ index }: { index: number }) {
                         <TableCell className="py-1.5 px-1.5">
                           <Actions items={h.river_actions} />
                         </TableCell>
-                        <TableCell className="py-1.5 pl-2 pr-1.5 font-mono text-[15px] text-text-muted hidden xl:table-cell">
+                        <TableCell className="py-1.5 pl-2 pr-1.5 font-mono text-[15px] text-text-muted">
                           {formatStakes(h.stakes)}
                         </TableCell>
                         <TableCell className={`py-1.5 px-1.5 text-right font-mono text-[15px] font-semibold ${
@@ -604,7 +601,7 @@ function SessionDetail({ index }: { index: number }) {
                             ? '\u2014'
                             : `${wonUsd < 0 ? '-' : ''}$${Math.abs(wonUsd).toFixed(2)}`}
                         </TableCell>
-                        <TableCell className="py-1.5 px-1.5 text-right text-[14px] text-text-muted whitespace-nowrap hidden 2xl:table-cell">
+                        <TableCell className="py-1.5 px-1.5 text-right text-[14px] text-text-muted whitespace-nowrap">
                           {formatRelativeDate(h.played_at)}
                         </TableCell>
                       </TableRow>
