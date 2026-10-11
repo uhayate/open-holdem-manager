@@ -111,14 +111,14 @@ function SessionList() {
 
   if (!isPending && sessions.length === 0) {
     return (
-      <div className="w-full">
+      <div className="max-w-6xl mx-auto">
         <EmptyState variant="no-data" />
       </div>
     );
   }
 
   return (
-    <div className="w-full space-y-1.5">
+    <div className="max-w-6xl mx-auto space-y-1.5">
 
       {isPending ? (
         <Card className="gap-0 py-0">
@@ -532,18 +532,18 @@ function SessionDetail({ index }: { index: number }) {
                 <TableHeader>
                   <TableRow className="text-[13px] uppercase tracking-wide">
                     <TableHead className="py-2 px-1.5 h-auto">Preflop</TableHead>
-                    <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
-                    <TableHead className="py-2 pl-2 pr-1.5 h-auto">Flop</TableHead>
-                    <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
-                    <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
-                    <TableHead className="py-2 pl-2 pr-1.5 h-auto">Turn</TableHead>
-                    <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
-                    <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
-                    <TableHead className="py-2 pl-2 pr-1.5 h-auto">River</TableHead>
-                    <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
-                    <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
-                    <TableHead className="py-2 pl-2 pr-1.5 h-auto">Stakes</TableHead>
-                    <TableHead className="py-2 px-1.5 h-auto text-right">Won</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto bg-surface-hover/30">Actions</TableHead>
+                    <TableHead className="py-2 pl-2 pr-1.5 h-auto border-l-2 border-l-border">Flop</TableHead>
+                    <TableHead className="py-2 px-1 h-auto text-center bg-surface-hover/30">Pot</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto bg-surface-hover/30">Actions</TableHead>
+                    <TableHead className="py-2 pl-2 pr-1.5 h-auto border-l-2 border-l-border">Turn</TableHead>
+                    <TableHead className="py-2 px-1 h-auto text-center bg-surface-hover/30">Pot</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto bg-surface-hover/30">Actions</TableHead>
+                    <TableHead className="py-2 pl-2 pr-1.5 h-auto border-l-2 border-l-border">River</TableHead>
+                    <TableHead className="py-2 px-1 h-auto text-center bg-surface-hover/30">Pot</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto bg-surface-hover/30">Actions</TableHead>
+                    <TableHead className="py-2 pl-2 pr-1.5 h-auto border-l border-l-border font-normal">Stakes</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto text-right border-l border-l-border">Won</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -560,40 +560,40 @@ function SessionDetail({ index }: { index: number }) {
                         <TableCell className="py-1.5 px-1.5">
                           <CardBoxPair card1={h.card1} card2={h.card2} />
                         </TableCell>
-                        <TableCell className="py-1.5 px-1.5">
+                        <TableCell className="py-1.5 px-1.5 bg-surface-hover/30">
                           <Actions items={h.preflop_actions} trimFolds />
                         </TableCell>
-                        <TableCell className="py-1.5 pl-2 pr-1.5">
+                        <TableCell className="py-1.5 pl-2 pr-1.5 border-l-2 border-l-border">
                           <CardBoxRow cards={h.flop_cards} />
                         </TableCell>
-                        <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted">
+                        <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted bg-surface-hover/30">
                           {h.flop_cards.length > 0 ? Math.round(h.flop_pot) : ''}
                         </TableCell>
-                        <TableCell className="py-1.5 px-1.5">
+                        <TableCell className="py-1.5 px-1.5 bg-surface-hover/30">
                           <Actions items={h.flop_actions} />
                         </TableCell>
-                        <TableCell className="py-1.5 pl-2 pr-1.5">
+                        <TableCell className="py-1.5 pl-2 pr-1.5 border-l-2 border-l-border">
                           {h.turn_card && <CardBox card={h.turn_card} />}
                         </TableCell>
-                        <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted">
+                        <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted bg-surface-hover/30">
                           {h.turn_card ? Math.round(h.turn_pot) : ''}
                         </TableCell>
-                        <TableCell className="py-1.5 px-1.5">
+                        <TableCell className="py-1.5 px-1.5 bg-surface-hover/30">
                           <Actions items={h.turn_actions} />
                         </TableCell>
-                        <TableCell className="py-1.5 pl-2 pr-1.5">
+                        <TableCell className="py-1.5 pl-2 pr-1.5 border-l-2 border-l-border">
                           {h.river_card && <CardBox card={h.river_card} />}
                         </TableCell>
-                        <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted">
+                        <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted bg-surface-hover/30">
                           {h.river_card ? Math.round(h.river_pot) : ''}
                         </TableCell>
-                        <TableCell className="py-1.5 px-1.5">
+                        <TableCell className="py-1.5 px-1.5 bg-surface-hover/30">
                           <Actions items={h.river_actions} />
                         </TableCell>
-                        <TableCell className="py-1.5 pl-2 pr-1.5 font-mono text-[15px] text-text-muted">
+                        <TableCell className="py-1.5 pl-2 pr-1.5 font-mono text-[15px] text-text-muted border-l border-l-border">
                           {formatStakes(h.stakes)}
                         </TableCell>
-                        <TableCell className={`py-1.5 px-1.5 text-right font-mono text-[15px] font-semibold ${
+                        <TableCell className={`py-1.5 px-1.5 text-right font-mono text-[15px] font-semibold border-l border-l-border ${
                           wonUsd > 0.005 ? 'text-green' : wonUsd < -0.005 ? 'text-red' : 'text-text-muted'
                         }`}>
                           {Math.abs(wonUsd) < 0.005
