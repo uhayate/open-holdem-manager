@@ -87,7 +87,6 @@ export default function HandExplorer({
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState(false);
-  const [bbPrecision, setBbPrecision] = useState<0 | 1>(1);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -206,15 +205,6 @@ export default function HandExplorer({
           >
             ?
           </button>
-          <button
-            onClick={() => setBbPrecision(p => p === 0 ? 1 : 0)}
-            className={`text-[11px] font-mono px-1.5 h-[18px] rounded border flex items-center justify-center ${
-              bbPrecision === 1 ? 'border-primary text-primary' : 'border-border text-text-muted hover:text-text'
-            }`}
-            title={`BB precision: ${bbPrecision === 0 ? 'rounded' : '1 decimal'}. Click to toggle.`}
-          >
-            .0
-          </button>
         </div>
         {data && (
           <span className="text-[15px] text-text-muted">
@@ -266,20 +256,20 @@ export default function HandExplorer({
               <TableHeader>
                 <TableRow className="text-[13px] uppercase tracking-wide">
                   <TableHead className="py-2 px-2 h-auto sticky left-0 z-20 bg-background">Preflop</TableHead>
-                  <TableHead className="py-2 px-2 h-auto">Actions</TableHead>
-                  <TableHead className="py-2 pl-4 pr-2 h-auto">Flop</TableHead>
-                  <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
-                  <TableHead className="py-2 px-2 h-auto">Actions</TableHead>
-                  <TableHead className="py-2 pl-4 pr-2 h-auto">Turn</TableHead>
-                  <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
-                  <TableHead className="py-2 px-2 h-auto">Actions</TableHead>
-                  <TableHead className="py-2 pl-4 pr-2 h-auto">River</TableHead>
-                  <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
-                  <TableHead className="py-2 px-2 h-auto">Actions</TableHead>
-                  <TableHead className="py-2 pl-4 pr-2 h-auto cursor-pointer hover:text-text select-none" onClick={() => handleSort('stakes')}>
+                  <TableHead className="py-2 px-2 h-auto bg-surface-hover/30">Actions</TableHead>
+                  <TableHead className="py-2 pl-4 pr-2 h-auto border-l-2 border-l-border">Flop</TableHead>
+                  <TableHead className="py-2 px-1 h-auto text-center bg-surface-hover/30">Pot</TableHead>
+                  <TableHead className="py-2 px-2 h-auto bg-surface-hover/30">Actions</TableHead>
+                  <TableHead className="py-2 pl-4 pr-2 h-auto border-l-2 border-l-border">Turn</TableHead>
+                  <TableHead className="py-2 px-1 h-auto text-center bg-surface-hover/30">Pot</TableHead>
+                  <TableHead className="py-2 px-2 h-auto bg-surface-hover/30">Actions</TableHead>
+                  <TableHead className="py-2 pl-4 pr-2 h-auto border-l-2 border-l-border">River</TableHead>
+                  <TableHead className="py-2 px-1 h-auto text-center bg-surface-hover/30">Pot</TableHead>
+                  <TableHead className="py-2 px-2 h-auto bg-surface-hover/30">Actions</TableHead>
+                  <TableHead className="py-2 pl-4 pr-2 h-auto cursor-pointer hover:text-text select-none border-l border-l-border" onClick={() => handleSort('stakes')}>
                     Stakes{sortArrow('stakes')}
                   </TableHead>
-                  <TableHead className="py-2 px-2 h-auto text-right cursor-pointer hover:text-text select-none" onClick={() => handleSort('won_usd')}>
+                  <TableHead className="py-2 px-2 h-auto text-right cursor-pointer hover:text-text select-none border-l border-l-border" onClick={() => handleSort('won_usd')}>
                     Won{sortArrow('won_usd')}
                   </TableHead>
                   <TableHead className="py-2 px-2 h-auto text-right">EV Diff.</TableHead>
@@ -317,59 +307,59 @@ export default function HandExplorer({
                         </div>
                       </TableCell>
                       {/* Preflop actions — trim leading folds */}
-                      <TableCell className="py-1.5 px-2">
-                        <div className="max-w-[160px] truncate" title={actionTitle(h.preflop_actions, bbPrecision, true)}>
-                          <Actions items={h.preflop_actions} trimFolds precision={bbPrecision} />
+                      <TableCell className="py-1.5 px-2 bg-surface-hover/30">
+                        <div className="max-w-[160px] truncate" title={actionTitle(h.preflop_actions, 1, true)}>
+                          <Actions items={h.preflop_actions} trimFolds precision={1} />
                         </div>
                       </TableCell>
                       {/* Flop cards */}
-                      <TableCell className="py-1.5 pl-4 pr-2">
+                      <TableCell className="py-1.5 pl-4 pr-2 border-l-2 border-l-border">
                         <CardBoxRow cards={h.flop_cards} />
                       </TableCell>
                       {/* Flop pot */}
-                      <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted">
-                        {h.flop_cards.length > 0 ? (bbPrecision === 0 ? Math.round(h.flop_pot) : h.flop_pot.toFixed(1).replace(/\.0$/, '')) : ''}
+                      <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted bg-surface-hover/30">
+                        {h.flop_cards.length > 0 ? h.flop_pot.toFixed(1).replace(/\.0$/, '') : ''}
                       </TableCell>
                       {/* Flop actions */}
-                      <TableCell className="py-1.5 px-2">
-                        <div className="max-w-[130px] truncate" title={actionTitle(h.flop_actions, bbPrecision)}>
-                          <Actions items={h.flop_actions} precision={bbPrecision} />
+                      <TableCell className="py-1.5 px-2 bg-surface-hover/30">
+                        <div className="max-w-[130px] truncate" title={actionTitle(h.flop_actions, 1)}>
+                          <Actions items={h.flop_actions} precision={1} />
                         </div>
                       </TableCell>
                       {/* Turn card */}
-                      <TableCell className="py-1.5 pl-4 pr-2">
+                      <TableCell className="py-1.5 pl-4 pr-2 border-l-2 border-l-border">
                         {h.turn_card && <CardBox card={h.turn_card} />}
                       </TableCell>
                       {/* Turn pot */}
-                      <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted">
-                        {h.turn_card ? (bbPrecision === 0 ? Math.round(h.turn_pot) : h.turn_pot.toFixed(1).replace(/\.0$/, '')) : ''}
+                      <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted bg-surface-hover/30">
+                        {h.turn_card ? h.turn_pot.toFixed(1).replace(/\.0$/, '') : ''}
                       </TableCell>
                       {/* Turn actions */}
-                      <TableCell className="py-1.5 px-2">
-                        <div className="max-w-[130px] truncate" title={actionTitle(h.turn_actions, bbPrecision)}>
-                          <Actions items={h.turn_actions} precision={bbPrecision} />
+                      <TableCell className="py-1.5 px-2 bg-surface-hover/30">
+                        <div className="max-w-[130px] truncate" title={actionTitle(h.turn_actions, 1)}>
+                          <Actions items={h.turn_actions} precision={1} />
                         </div>
                       </TableCell>
                       {/* River card */}
-                      <TableCell className="py-1.5 pl-4 pr-2">
+                      <TableCell className="py-1.5 pl-4 pr-2 border-l-2 border-l-border">
                         {h.river_card && <CardBox card={h.river_card} />}
                       </TableCell>
                       {/* River pot */}
-                      <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted">
-                        {h.river_card ? (bbPrecision === 0 ? Math.round(h.river_pot) : h.river_pot.toFixed(1).replace(/\.0$/, '')) : ''}
+                      <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted bg-surface-hover/30">
+                        {h.river_card ? h.river_pot.toFixed(1).replace(/\.0$/, '') : ''}
                       </TableCell>
                       {/* River actions */}
-                      <TableCell className="py-1.5 px-2">
-                        <div className="max-w-[130px] truncate" title={actionTitle(h.river_actions, bbPrecision)}>
-                          <Actions items={h.river_actions} precision={bbPrecision} />
+                      <TableCell className="py-1.5 px-2 bg-surface-hover/30">
+                        <div className="max-w-[130px] truncate" title={actionTitle(h.river_actions, 1)}>
+                          <Actions items={h.river_actions} precision={1} />
                         </div>
                       </TableCell>
                       {/* Stakes */}
-                      <TableCell className="py-1.5 pl-4 pr-2 font-mono text-[15px] text-text-muted">
+                      <TableCell className="py-1.5 pl-4 pr-2 font-mono text-[15px] text-text-muted border-l border-l-border">
                         {formatStakes(h.stakes)}
                       </TableCell>
                       {/* Won (USD) */}
-                      <TableCell className={`py-1.5 px-2 text-right font-mono text-[15px] font-semibold ${
+                      <TableCell className={`py-1.5 px-2 text-right font-mono text-[15px] font-semibold border-l border-l-border ${
                         wonUsd > 0.005 ? 'text-green' : wonUsd < -0.005 ? 'text-red' : 'text-text-muted'
                       }`}>
                         {Math.abs(wonUsd) < 0.005
