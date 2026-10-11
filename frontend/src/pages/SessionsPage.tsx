@@ -23,7 +23,7 @@ import type {
   SessionBigHand,
 } from '@/lib/api';
 import { queryKeys } from '@/lib/query-keys';
-import { formatStakes, formatRelativeDate } from '@/lib/utils';
+import { formatStakes } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
 import { CardBoxPair, CardBoxRow, CardBox } from '@/components/hands/CardDisplay';
 import Actions from '@/components/hands/Actions';
@@ -111,14 +111,14 @@ function SessionList() {
 
   if (!isPending && sessions.length === 0) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full">
         <EmptyState variant="no-data" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-1.5">
+    <div className="w-full space-y-1.5">
 
       {isPending ? (
         <Card className="gap-0 py-0">
@@ -240,7 +240,7 @@ function SessionDetail({ index }: { index: number }) {
 
   if (invalidIndex) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full">
         <EmptyState variant="no-match" message="This session link is not valid." />
       </div>
     );
@@ -248,7 +248,7 @@ function SessionDetail({ index }: { index: number }) {
 
   if (isPending) {
     return (
-      <div className="max-w-6xl mx-auto space-y-1.5">
+      <div className="w-full space-y-1.5">
         <Skeleton className="h-8 w-64 mb-3" />
         <Card className="gap-0 py-0 p-2"><Skeleton className="h-[300px] w-full rounded" /></Card>
         <Card className="gap-0 py-0"><Skeleton className="h-32 w-full" /></Card>
@@ -258,7 +258,7 @@ function SessionDetail({ index }: { index: number }) {
 
   if (!stats) {
     return (
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full">
         <EmptyState variant="no-data" />
       </div>
     );
@@ -279,7 +279,7 @@ function SessionDetail({ index }: { index: number }) {
   const hasFees = stats.rake_bb + stats.jackpot_bb > 0;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-1.5">
+    <div className="w-full space-y-1.5">
       {/* Header info strip */}
       <div className="flex items-center gap-2 mb-1">
         <h1 className="text-[18px] font-bold text-text">
@@ -544,7 +544,6 @@ function SessionDetail({ index }: { index: number }) {
                     <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
                     <TableHead className="py-2 pl-2 pr-1.5 h-auto">Stakes</TableHead>
                     <TableHead className="py-2 px-1.5 h-auto text-right">Won</TableHead>
-                    <TableHead className="py-2 px-1.5 h-auto text-right whitespace-nowrap">Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -600,9 +599,6 @@ function SessionDetail({ index }: { index: number }) {
                           {Math.abs(wonUsd) < 0.005
                             ? '\u2014'
                             : `${wonUsd < 0 ? '-' : ''}$${Math.abs(wonUsd).toFixed(2)}`}
-                        </TableCell>
-                        <TableCell className="py-1.5 px-1.5 text-right text-[14px] text-text-muted whitespace-nowrap">
-                          {formatRelativeDate(h.played_at)}
                         </TableCell>
                       </TableRow>
                     );
