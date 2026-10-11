@@ -531,20 +531,23 @@ function SessionDetail({ index }: { index: number }) {
               <Table>
                 <TableHeader>
                   <TableRow className="text-[13px] uppercase tracking-wide">
-                    <TableHead className="py-2 px-2 h-auto">Preflop</TableHead>
-                    <TableHead className="py-2 px-2 h-auto">Actions</TableHead>
-                    <TableHead className="py-2 pl-4 pr-2 h-auto">Flop</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto">Preflop</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
+                    <TableHead className="py-2 pl-2 pr-1.5 h-auto">Flop</TableHead>
                     <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
-                    <TableHead className="py-2 px-2 h-auto">Actions</TableHead>
-                    <TableHead className="py-2 pl-4 pr-2 h-auto">Turn</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
+                    <TableHead className="py-2 pl-2 pr-1.5 h-auto">Turn</TableHead>
                     <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
-                    <TableHead className="py-2 px-2 h-auto">Actions</TableHead>
-                    <TableHead className="py-2 pl-4 pr-2 h-auto">River</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
+                    <TableHead className="py-2 pl-2 pr-1.5 h-auto">River</TableHead>
                     <TableHead className="py-2 px-1 h-auto text-center">Pot</TableHead>
-                    <TableHead className="py-2 px-2 h-auto">Actions</TableHead>
-                    <TableHead className="py-2 pl-4 pr-2 h-auto">Stakes</TableHead>
-                    <TableHead className="py-2 px-2 h-auto text-right">Won</TableHead>
-                    <TableHead className="py-2 px-2 h-auto text-right">Date</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto">Actions</TableHead>
+                    {/* Stakes and Date repeat what the session header shows, so
+                        they are the first to go when the window is narrow; the
+                        hand/action/result columns always stay. */}
+                    <TableHead className="py-2 pl-2 pr-1.5 h-auto hidden xl:table-cell">Stakes</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto text-right">Won</TableHead>
+                    <TableHead className="py-2 px-1.5 h-auto text-right whitespace-nowrap hidden 2xl:table-cell">Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -558,50 +561,50 @@ function SessionDetail({ index }: { index: number }) {
                           selectedHandId === h.id ? 'bg-primary/10' : 'hover:bg-surface-hover'
                         }`}
                       >
-                        <TableCell className="py-1.5 px-2">
+                        <TableCell className="py-1.5 px-1.5">
                           <CardBoxPair card1={h.card1} card2={h.card2} />
                         </TableCell>
-                        <TableCell className="py-1.5 px-2">
+                        <TableCell className="py-1.5 px-1.5">
                           <Actions items={h.preflop_actions} trimFolds />
                         </TableCell>
-                        <TableCell className="py-1.5 pl-4 pr-2">
+                        <TableCell className="py-1.5 pl-2 pr-1.5">
                           <CardBoxRow cards={h.flop_cards} />
                         </TableCell>
                         <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted">
                           {h.flop_cards.length > 0 ? Math.round(h.flop_pot) : ''}
                         </TableCell>
-                        <TableCell className="py-1.5 px-2">
+                        <TableCell className="py-1.5 px-1.5">
                           <Actions items={h.flop_actions} />
                         </TableCell>
-                        <TableCell className="py-1.5 pl-4 pr-2">
+                        <TableCell className="py-1.5 pl-2 pr-1.5">
                           {h.turn_card && <CardBox card={h.turn_card} />}
                         </TableCell>
                         <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted">
                           {h.turn_card ? Math.round(h.turn_pot) : ''}
                         </TableCell>
-                        <TableCell className="py-1.5 px-2">
+                        <TableCell className="py-1.5 px-1.5">
                           <Actions items={h.turn_actions} />
                         </TableCell>
-                        <TableCell className="py-1.5 pl-4 pr-2">
+                        <TableCell className="py-1.5 pl-2 pr-1.5">
                           {h.river_card && <CardBox card={h.river_card} />}
                         </TableCell>
                         <TableCell className="py-1.5 px-1 text-center font-mono text-[14px] text-text-muted">
                           {h.river_card ? Math.round(h.river_pot) : ''}
                         </TableCell>
-                        <TableCell className="py-1.5 px-2">
+                        <TableCell className="py-1.5 px-1.5">
                           <Actions items={h.river_actions} />
                         </TableCell>
-                        <TableCell className="py-1.5 pl-4 pr-2 font-mono text-[15px] text-text-muted">
+                        <TableCell className="py-1.5 pl-2 pr-1.5 font-mono text-[15px] text-text-muted hidden xl:table-cell">
                           {formatStakes(h.stakes)}
                         </TableCell>
-                        <TableCell className={`py-1.5 px-2 text-right font-mono text-[15px] font-semibold ${
+                        <TableCell className={`py-1.5 px-1.5 text-right font-mono text-[15px] font-semibold ${
                           wonUsd > 0.005 ? 'text-green' : wonUsd < -0.005 ? 'text-red' : 'text-text-muted'
                         }`}>
                           {Math.abs(wonUsd) < 0.005
                             ? '\u2014'
                             : `${wonUsd < 0 ? '-' : ''}$${Math.abs(wonUsd).toFixed(2)}`}
                         </TableCell>
-                        <TableCell className="py-1.5 px-2 text-right text-[14px] text-text-muted whitespace-nowrap">
+                        <TableCell className="py-1.5 px-1.5 text-right text-[14px] text-text-muted whitespace-nowrap hidden 2xl:table-cell">
                           {formatRelativeDate(h.played_at)}
                         </TableCell>
                       </TableRow>
