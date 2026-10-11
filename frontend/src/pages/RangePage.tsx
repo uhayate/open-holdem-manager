@@ -288,35 +288,51 @@ export default function RangePage() {
 
           {/* Right panel: detail + leaks */}
           <div className="w-full lg:w-auto lg:min-w-[280px] flex-1">
-            {/* Combo detail */}
-            {detail ? (
-              <Card className="gap-0 py-0 p-3 mb-1.5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-2xl font-bold font-mono">{activeCombo}</span>
-                  <span className="text-sm text-text-muted">
-                    {detail.hands} hands
-                    {detail.hands < MIN_SAMPLE && (
-                      <span className="text-yellow ml-1">(low sample)</span>
-                    )}
+            {/* Combo detail. The leaks and winners lists below hang off this
+                card, so its height must not depend on whether a combo is
+                hovered: growing on hover pushes those lists out from under the
+                pointer, which fires mouseleave, shrinks the card, and pulls
+                them back — an infinite flicker. So the card always renders the
+                same structure and only the values change; the empty state
+                keeps the layout alive with dashes instead of collapsing it. */}
+            <Card className="gap-0 py-0 p-3 mb-2">
+              <div className="flex items-center justify-between mb-2 min-h-[32px]">
+                {detail ? (
+                  <>
+                    <span className="text-2xl font-bold font-mono">{activeCombo}</span>
+                    <span className="text-sm text-text-muted">
+                      {detail.hands} hands
+                      {detail.hands < MIN_SAMPLE && (
+                        <span className="text-yellow ml-1">(low sample)</span>
+                      )}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[15px] text-text-muted">
+                    Hover or click a cell to see details
                   </span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[15px]">
-                  <DetailRow label="Won" value={`${detail.won_bb >= 0 ? '+' : ''}${detail.won_bb.toFixed(1)} BB`} color={detail.won_bb >= 0 ? 'text-green' : 'text-red'} />
-                  <DetailRow label="bb/100" value={detail.bb_per_100.toFixed(1)} color={detail.bb_per_100 >= 0 ? 'text-green' : 'text-red'} />
-                  <DetailRow label="EV Won" value={`${detail.ev_bb >= 0 ? '+' : ''}${detail.ev_bb.toFixed(1)} BB`} color={detail.ev_bb >= 0 ? 'text-green' : 'text-red'} />
-                  <DetailRow label="EV bb/100" value={detail.ev_bb_per_100.toFixed(1)} color={detail.ev_bb_per_100 >= 0 ? 'text-green' : 'text-red'} />
-                  <DetailRow label="VPIP" value={`${detail.hands > 0 ? ((detail.vpip / detail.hands) * 100).toFixed(0) : 0}%`} />
-                  <DetailRow label="PFR" value={`${detail.hands > 0 ? ((detail.pfr / detail.hands) * 100).toFixed(0) : 0}%`} />
-                  <DetailRow label="3-Bet" value={`${detail.hands > 0 ? ((detail.three_bet / detail.hands) * 100).toFixed(0) : 0}%`} />
-                  <DetailRow label="WTSD" value={detail.wtsd_opp > 0 ? `${((detail.wtsd / detail.wtsd_opp) * 100).toFixed(0)}%` : '--'} sub={detail.wtsd_opp > 0 ? `${detail.wtsd}/${detail.wtsd_opp}` : undefined} />
-                  <DetailRow label="W$SD" value={detail.wsd_opp > 0 ? `${((detail.wsd / detail.wsd_opp) * 100).toFixed(0)}%` : '--'} sub={detail.wsd_opp > 0 ? `${detail.wsd}/${detail.wsd_opp}` : undefined} />
-                </div>
-              </Card>
-            ) : (
-              <Card className="p-3 mb-2 text-text-muted text-[15px]">
-                Hover or click a cell to see details
-              </Card>
-            )}
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[15px]">
+                {detail ? (
+                  <>
+                    <DetailRow label="Won" value={`${detail.won_bb >= 0 ? '+' : ''}${detail.won_bb.toFixed(1)} BB`} color={detail.won_bb >= 0 ? 'text-green' : 'text-red'} />
+                    <DetailRow label="bb/100" value={detail.bb_per_100.toFixed(1)} color={detail.bb_per_100 >= 0 ? 'text-green' : 'text-red'} />
+                    <DetailRow label="EV Won" value={`${detail.ev_bb >= 0 ? '+' : ''}${detail.ev_bb.toFixed(1)} BB`} color={detail.ev_bb >= 0 ? 'text-green' : 'text-red'} />
+                    <DetailRow label="EV bb/100" value={detail.ev_bb_per_100.toFixed(1)} color={detail.ev_bb_per_100 >= 0 ? 'text-green' : 'text-red'} />
+                    <DetailRow label="VPIP" value={`${detail.hands > 0 ? ((detail.vpip / detail.hands) * 100).toFixed(0) : 0}%`} />
+                    <DetailRow label="PFR" value={`${detail.hands > 0 ? ((detail.pfr / detail.hands) * 100).toFixed(0) : 0}%`} />
+                    <DetailRow label="3-Bet" value={`${detail.hands > 0 ? ((detail.three_bet / detail.hands) * 100).toFixed(0) : 0}%`} />
+                    <DetailRow label="WTSD" value={detail.wtsd_opp > 0 ? `${((detail.wtsd / detail.wtsd_opp) * 100).toFixed(0)}%` : '--'} sub={detail.wtsd_opp > 0 ? `${detail.wtsd}/${detail.wtsd_opp}` : undefined} />
+                    <DetailRow label="W$SD" value={detail.wsd_opp > 0 ? `${((detail.wsd / detail.wsd_opp) * 100).toFixed(0)}%` : '--'} sub={detail.wsd_opp > 0 ? `${detail.wsd}/${detail.wsd_opp}` : undefined} />
+                  </>
+                ) : (
+                  Array.from({ length: 9 }, (_, i) => (
+                    <DetailRow key={i} label="" value="—" />
+                  ))
+                )}
+              </div>
+            </Card>
 
             {/* Biggest leaks */}
             {biggestLeaks.length > 0 && (
