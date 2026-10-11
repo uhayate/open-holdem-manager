@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import type { MouseEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRangeStats } from '@/lib/api';
 import type { ComboStats } from '@/lib/api';
@@ -159,6 +160,14 @@ export default function RangePage() {
 
   const activeCombo = selected ?? hovered;
   const detail = activeCombo ? comboMap.get(activeCombo) : null;
+
+  // Read the combo off the element the pointer moved onto. Delegating to the
+  // list container keeps a hovered row stable while the pointer crosses the
+  // space-y-2 gap between rows, which would otherwise blank the detail card.
+  const hoverComboFromEvent = (e: MouseEvent<HTMLDivElement>) => {
+    const combo = (e.target as HTMLElement).closest('[data-combo]')?.getAttribute('data-combo');
+    if (combo) setHovered(combo);
+  };
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-2">
@@ -338,13 +347,22 @@ export default function RangePage() {
             {biggestLeaks.length > 0 && (
               <Card className="gap-0 py-0 p-3 mb-1.5">
                 <h3 className="text-sm font-medium text-text-muted uppercase tracking-wide mb-2">Biggest Leaks</h3>
-                <div className="space-y-2">
+                {/* Rows are separated by space-y-2, and that gap belongs to no
+                    row: with per-row mouseenter/leave, sliding from one combo
+                    to the next passes through hovered=null and the detail card
+                    blanks out between them. Delegating onmouseover to the list
+                    means nothing fires while the pointer is in the gap, so the
+                    selection only ever changes on the row you land on. */}
+                <div
+                  className="space-y-2"
+                  onMouseOver={hoverComboFromEvent}
+                  onMouseLeave={() => setHovered(null)}
+                >
                   {biggestLeaks.map(c => (
                     <div
                       key={c.combo}
+                      data-combo={c.combo}
                       className="flex items-center justify-between text-[15px] cursor-pointer hover:bg-surface-hover rounded px-2 py-1 -mx-2"
-                      onMouseEnter={() => setHovered(c.combo)}
-                      onMouseLeave={() => setHovered(null)}
                       onClick={() => setSelected(selected === c.combo ? null : c.combo)}
                     >
                       <span className="font-mono font-medium">{c.combo}</span>
@@ -362,13 +380,16 @@ export default function RangePage() {
             {biggestWinners.length > 0 && (
               <Card className="gap-0 py-0 p-3">
                 <h3 className="text-sm font-medium text-text-muted uppercase tracking-wide mb-2">Top Winners</h3>
-                <div className="space-y-2">
+                <div
+                  className="space-y-2"
+                  onMouseOver={hoverComboFromEvent}
+                  onMouseLeave={() => setHovered(null)}
+                >
                   {biggestWinners.map(c => (
                     <div
                       key={c.combo}
+                      data-combo={c.combo}
                       className="flex items-center justify-between text-[15px] cursor-pointer hover:bg-surface-hover rounded px-2 py-1 -mx-2"
-                      onMouseEnter={() => setHovered(c.combo)}
-                      onMouseLeave={() => setHovered(null)}
                       onClick={() => setSelected(selected === c.combo ? null : c.combo)}
                     >
                       <span className="font-mono font-medium">{c.combo}</span>
