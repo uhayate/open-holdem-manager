@@ -66,7 +66,7 @@ function niceXTicks(max: number): number[] {
   return ticks;
 }
 
-type LineToggle = 'ev' | 'showdown' | 'rake' | 'ci' | 'sessions';
+type LineToggle = 'ev' | 'showdown' | 'rake' | 'sessions';
 
 const LINE_COLORS = {
   main: '#fbbf24',
@@ -74,7 +74,6 @@ const LINE_COLORS = {
   showdown: '#22c55e',
   nonshowdown: '#ef4444',
   rake: '#a78bfa',
-  ci: '#fbbf24',
   session: 'oklch(0.553 0.013 58.071)',
 } as const;
 
@@ -239,7 +238,6 @@ export default function GraphPage() {
 
   const data = useMemo(() => graphResp?.points ?? [], [graphResp]);
   const sessions = useMemo(() => graphResp?.sessions ?? [], [graphResp]);
-  const variance = graphResp?.variance ?? null;
 
   // Breakdown query
   const { data: breakdown, isPending: breakdownLoading } = useQuery({
@@ -309,28 +307,13 @@ export default function GraphPage() {
 
   const chartDataEnriched = useMemo(() => {
     const addRake = lines.has('rake');
-    const addCI = lines.has('ci') && variance;
-    if (!addRake && !addCI) return chartData;
-    const mean = variance ? variance.winrate_bb100 / 100 : 0;
-    const sd = variance ? variance.sd_bb : 0;
-    return chartData.map(d => {
-      const i = d.hand_number;
-      const sqrtI = Math.sqrt(i);
-      return {
-        ...d,
-        ...(addRake ? {
-          neg_rake_bb: -d.cumulative_rake_bb,
-          neg_rake_usd: -d.cumulative_rake_usd,
-        } : {}),
-        ...(addCI ? {
-          ci_range: [
-            Math.round((mean * i - 1.96 * sd * sqrtI) * 100) / 100,
-            Math.round((mean * i + 1.96 * sd * sqrtI) * 100) / 100,
-          ],
-        } : {}),
-      };
-    });
-  }, [chartData, lines, variance]);
+    if (!addRake) return chartData;
+    return chartData.map(d => ({
+      ...d,
+      neg_rake_bb: -d.cumulative_rake_bb,
+      neg_rake_usd: -d.cumulative_rake_usd,
+    }));
+  }, [chartData, lines]);
 
   // Checkpoint reference lines — map each checkpoint to the nearest graph data point
   const checkpointLines = useMemo(() => {
@@ -481,7 +464,6 @@ export default function GraphPage() {
       {toggleBtn('ev', 'EV', LINE_COLORS.ev, hasEVData)}
       {toggleBtn('showdown', 'SD', LINE_COLORS.showdown)}
       {toggleBtn('rake', 'Rake', LINE_COLORS.rake)}
-      {toggleBtn('ci', 'CI', LINE_COLORS.ci, !!variance)}
       {toggleBtn('sessions', 'Sessions', LINE_COLORS.session, sessions.length > 1)}
       {checkpoints.length > 0 && (
         <Toggle
@@ -552,12 +534,6 @@ export default function GraphPage() {
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-4 h-0.5 rounded" style={{ background: LINE_COLORS.rake }} />
                 Rake
-              </span>
-            )}
-            {lines.has('ci') && variance && (
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-4 h-2 rounded opacity-30" style={{ background: LINE_COLORS.ci }} />
-                95% CI
               </span>
             )}
             {lines.has('sessions') && sessions.length > 1 && (
@@ -638,21 +614,6 @@ export default function GraphPage() {
                   }}
                 />
               ))}
-              {lines.has('ci') && variance && (
-                <Area
-                  type="monotone"
-                  dataKey="ci_range"
-                  name="ci_range"
-                  stroke={LINE_COLORS.ci}
-                  strokeWidth={0.5}
-                  strokeOpacity={0.3}
-                  fill={LINE_COLORS.ci}
-                  fillOpacity={0.08}
-                  dot={false}
-                  isAnimationActive={false}
-                  connectNulls
-                />
-              )}
               <Area
                 type="monotone"
                 dataKey={mainKey}
@@ -784,7 +745,7 @@ export default function GraphPage() {
           </div>
 
           {/* Footer: secondary stats */}
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-6 px-4 py-2.5 border-t border-border">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 px-4 py-2.5 border-t border-border">
             {/* $/hr */}
             <div>
               <div className={`text-sm font-bold font-mono ${totalHrs > 0 ? clr(usdPerHour) : 'text-text-muted'}`}>
@@ -806,19 +767,6 @@ export default function GraphPage() {
             <div>
               <div className="text-sm font-bold font-mono text-text-muted">{fmtUSD(rakeUSD)}</div>
               <div className="text-xs text-text-muted">Rake <span className="font-mono">{rakePerBB.toFixed(1)}/100{jackpotBB > 0 ? ` · BBJ ${fmtUSD(jackpotUSD)}` : ''}</span></div>
-            </div>
-            {/* 95% CI */}
-            <div>
-              {variance ? (
-                <>
-                  <div className={`text-sm font-bold font-mono ${variance.ci_lower_bb100 > 0 ? 'text-green' : variance.ci_upper_bb100 < 0 ? 'text-red' : 'text-text'}`}>
-                    {variance.ci_lower_bb100.toFixed(2)} to {variance.ci_upper_bb100.toFixed(2)}
-                  </div>
-                  <div className="text-xs text-text-muted">95% CI bb/100 <span className="font-mono">σ {variance.sd_bb100.toFixed(1)}</span></div>
-                </>
-              ) : (
-                <div className="text-sm font-mono text-text-muted">—</div>
-              )}
             </div>
           </div>
         </Card>
