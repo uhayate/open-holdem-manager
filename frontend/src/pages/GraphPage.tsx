@@ -418,7 +418,6 @@ export default function GraphPage() {
     [sdKey]: 'Showdown',
     [nsdKey]: 'Non-Showdown',
     [negRakeKey]: 'Rake',
-    ci_range: '95% CI',
   };
 
   const filterBarContent = (
