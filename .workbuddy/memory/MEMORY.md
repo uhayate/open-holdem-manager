@@ -74,7 +74,13 @@
   3455 行全 NULL → AVG=0 → 永远不触发）而第三份是对的且只有测试在引用 → **测试绿着、线上错着**。
   同理：凡「同一件事在两个地方各写一遍」的代码，迟早漂移。
 - ~~已知缺陷（未修）：rake 重复扣 jackpot~~ **2026-10-10 已修**：`total_rake` 曾把 jackpot 一起加进去，导入时又减一次 `per_player_jackpot`。现在 `total_rake`=纯 Rake、新增 `total_fees`=全部费用；`_migrate_rake_excludes_jackpot` 用 `rake = rake - jackpot` 修既 389 行（幂等，settings key `rake_jackpot_split`）。校验：389 行与全量重解析 **0 处不一致**，rake+jackpot 精确等于总费用。**当时为何没人发现**：`won_bb` 走 `collected+uncalled-invested`，根本不读这两列 → 统计图表全对，纯粹是显示层。
-- **前端费用口径已全部统一为 `Fees = rake + jackpot`（2026-10-17 收尾，提交 d89c8e4）**，四处：Graph 页脚格、Graph 折线按钮、Sessions 详情摘要条第 4 格、Graph 三张 breakdown 表列。**别再单独显示纯 rake 标成 `Rake`** —— 本样本纯 rake 只占 72%，会低估 34–46%。breakdown 表**故意保持单行**（密集表，拆分放 `title`），页脚/摘要条则大数=总额、小字=`Fees · Rake $x (a/100) · Jackpot $y (b/100)`。**缩写 `BBJ` 已废弃**，只用 GG 手牌历史里的原词 `Jackpot`。
+- **前端费用口径已全部统一为 `Fees = rake + jackpot`（2026-10-17 收尾，提交 d89c8e4）**，四处：Graph 页脚格、Graph 折线按钮、Sessions 详情摘要条第 4 格、Graph 三张 breakdown 表列。**别再单独显示纯 rake 标成 `Rake`** —— 本样本纯 rake 只占 72%，会低估 34–46%。breakdown 表**故意保持单行**（密集表，拆分放 `title`）。**缩写 `BBJ` 已废弃**，只用 GG 手牌历史里的原词 `Jackpot`。
+- **费用格的两行制（2026-10-17 定，提交 `6137479`）**：`$10.62 ($7.67+$2.95)` / `Fees · Rake 4.2/100 · Jackpot 1.6/100`。
+  **钱在上行（总额 + 括号内拆分），比率在下行且不带 `$`、不带括号**。两行都不要超过 ~35 字符 ——
+  摘要格可用宽度只有 **~260px**（5 列 grid + `gap-x-6` + `px-4`），旧写法 ~330px 必然在 `$2.95` 前断行，
+  把数字和自己的标签劈开，是最难看的位置。下行用 `flex flex-wrap gap-x-1.5` + 每段 `whitespace-nowrap`，
+  真挤不下时断在 Rake/Jackpot 之间而不是词中间。
+  **两页共用 `components/stats/FeesFigure.tsx`**，别再各写一份（同一段 JSX 在两页逐字复制 = 迟早漂移）。
 - **验证真实数据别先信自己编的样本**：我编的 ante fixture 座位/用户名不一致导致 `KeyError`；后来「把真实手牌的 Cash Drop 行删掉当对照组」又造出一个不存在的 bug。**要对照就取真实的另一手牌，别手改。**
 - **排查时起过后端服务就会独占库**（只读连接也打不开）→ 要么走 HTTP，要么用**独立副本**。
   **dev 模式 `/api/shutdown` 返回 `no-server` 是正常的**（CLAUDE.md 有写，只有 `run_server.py` 才挂 uvicorn_server）→ 只能强停进程，**但强停会丢未提交的 WAL**（我曾白跑 50s 重建）。**验证重建结果必须让进程优雅退出。**
