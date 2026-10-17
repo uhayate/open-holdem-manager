@@ -66,14 +66,14 @@ function niceXTicks(max: number): number[] {
   return ticks;
 }
 
-type LineToggle = 'ev' | 'showdown' | 'rake' | 'sessions';
+type LineToggle = 'ev' | 'showdown' | 'fees' | 'sessions';
 
 const LINE_COLORS = {
   main: '#fbbf24',
   ev: '#06b6d4',
   showdown: '#22c55e',
   nonshowdown: '#ef4444',
-  rake: '#a78bfa',
+  fees: '#a78bfa',
   session: 'oklch(0.553 0.013 58.071)',
 } as const;
 
@@ -306,12 +306,14 @@ export default function GraphPage() {
   }, [data]);
 
   const chartDataEnriched = useMemo(() => {
-    const addRake = lines.has('rake');
-    if (!addRake) return chartData;
+    const addFees = lines.has('fees');
+    if (!addFees) return chartData;
+    // Fees = rake + jackpot. Drawing rake alone understated the fee drag by the
+    // jackpot, which is roughly a quarter of it on this sample.
     return chartData.map(d => ({
       ...d,
-      neg_rake_bb: -d.cumulative_rake_bb,
-      neg_rake_usd: -d.cumulative_rake_usd,
+      neg_fees_bb: -(d.cumulative_rake_bb + d.cumulative_jackpot_bb),
+      neg_fees_usd: -(d.cumulative_rake_usd + d.cumulative_jackpot_usd),
     }));
   }, [chartData, lines]);
 
@@ -383,6 +385,8 @@ export default function GraphPage() {
   const rateBB = n > 0 ? (wonBB / n) * 100 : 0;
   const evRateBB = n > 0 ? (evBB / n) * 100 : 0;
   const rakePerBB = n > 0 ? (rakeBB / n) * 100 : 0;
+  const jackpotPerBB = n > 0 ? (jackpotBB / n) * 100 : 0;
+  const feesUSD = rakeUSD + jackpotUSD;
   const sdRateBB = n > 0 ? (sdBB / n) * 100 : 0;
   const nsdRateBB = n > 0 ? (nsdBB / n) * 100 : 0;
 
@@ -411,14 +415,14 @@ export default function GraphPage() {
   const evKey = k('cumulative_ev');
   const sdKey = k('cumulative_showdown');
   const nsdKey = k('cumulative_nonshowdown');
-  const negRakeKey = unit === 'bb' ? 'neg_rake_bb' : 'neg_rake_usd';
+  const negFeesKey = unit === 'bb' ? 'neg_fees_bb' : 'neg_fees_usd';
 
   const tooltipNames: Record<string, string> = {
     [mainKey]: 'Actual',
     [evKey]: 'All-in EV',
     [sdKey]: 'Showdown',
     [nsdKey]: 'Non-Showdown',
-    [negRakeKey]: 'Rake',
+    [negFeesKey]: 'Fees',
   };
 
   const filterBarContent = (
@@ -463,7 +467,7 @@ export default function GraphPage() {
       </ToggleGroup>
       {toggleBtn('ev', 'EV', LINE_COLORS.ev, hasEVData)}
       {toggleBtn('showdown', 'SD', LINE_COLORS.showdown)}
-      {toggleBtn('rake', 'Rake', LINE_COLORS.rake)}
+      {toggleBtn('fees', 'Fees', LINE_COLORS.fees)}
       {toggleBtn('sessions', 'Sessions', LINE_COLORS.session, sessions.length > 1)}
       {checkpoints.length > 0 && (
         <Toggle
@@ -530,10 +534,10 @@ export default function GraphPage() {
                 </span>
               </>
             )}
-            {lines.has('rake') && (
+            {lines.has('fees') && (
               <span className="flex items-center gap-1.5">
-                <span className="inline-block w-4 h-0.5 rounded" style={{ background: LINE_COLORS.rake }} />
-                Rake
+                <span className="inline-block w-4 h-0.5 rounded" style={{ background: LINE_COLORS.fees }} />
+                Fees
               </span>
             )}
             {lines.has('sessions') && sessions.length > 1 && (
@@ -664,12 +668,12 @@ export default function GraphPage() {
                   isAnimationActive={false}
                 />
               )}
-              {lines.has('rake') && (
+              {lines.has('fees') && (
                 <Line
                   type="monotone"
-                  dataKey={negRakeKey}
-                  name={negRakeKey}
-                  stroke={LINE_COLORS.rake}
+                  dataKey={negFeesKey}
+                  name={negFeesKey}
+                  stroke={LINE_COLORS.fees}
                   strokeWidth={1.5}
                   dot={false}
                   connectNulls
@@ -763,10 +767,20 @@ export default function GraphPage() {
               <div className={`text-sm font-bold font-mono ${clr(nsdUSD)}`}>{fmtUSD(nsdUSD)}</div>
               <div className="text-xs text-text-muted">Non-SD <span className={`font-mono ${clr(nsdRateBB)}`}>{nsdRateBB.toFixed(1)}/100</span></div>
             </div>
-            {/* Rake */}
+            {/* Fees = rake + Jackpot. The headline is the total, and the split
+                is spelled out because the two are separate charges on the GG
+                summary line. "Jackpot" is the word the hand history itself
+                uses — it is not spelled out there, so we do not expand it. */}
             <div>
-              <div className="text-sm font-bold font-mono text-text-muted">{fmtUSD(rakeUSD)}</div>
-              <div className="text-xs text-text-muted">Rake <span className="font-mono">{rakePerBB.toFixed(1)}/100{jackpotBB > 0 ? ` · BBJ ${fmtUSD(jackpotUSD)}` : ''}</span></div>
+              <div className="text-sm font-bold font-mono text-text-muted">
+                {fmtUSD(feesUSD)}
+              </div>
+              <div className="text-xs text-text-muted">
+                Fees · Rake <span className="font-mono">{fmtUSD(rakeUSD)} ({rakePerBB.toFixed(1)}/100)</span>
+                {jackpotBB > 0 && (
+                  <> · Jackpot <span className="font-mono">{fmtUSD(jackpotUSD)} ({jackpotPerBB.toFixed(1)}/100)</span></>
+                )}
+              </div>
             </div>
           </div>
         </Card>
