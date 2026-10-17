@@ -15,7 +15,10 @@ logger = logging.getLogger(__name__)
 # 5: Cash Drop money was booked as profit (nobody "invested" it, but the
 #    winner's collected included it), inflating bb/100. Also re-derives the
 #    all-in EV, which had never been backfilled for older imports.
-STAT_VERSION = 5
+# 6: The Cash Drop correction was charged pro-rata to everyone who put chips
+#    in, so losers paid for a promotion they never received. It is now charged
+#    to whoever collected the pot, weighted by their share of it.
+STAT_VERSION = 6
 
 _data_dir = os.environ.get("OHM_DATA_DIR")
 if _data_dir:

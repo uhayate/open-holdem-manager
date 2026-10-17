@@ -215,8 +215,9 @@ def _compute_financials(parsed: ParsedHand):
     """Compute per-player investment and all-in EV for a parsed hand.
 
     Returns (player_invested, all_in_ev_bb_map, cash_drop_share).
-    `cash_drop_share` is each player's pro-rata slice of any Cash Drop, which
-    the caller subtracts from `won` so promo money is not booked as profit.
+    `cash_drop_share` is the slice of any Cash Drop withheld from each *pot
+    winner* (proportional to what they collected); the caller subtracts it
+    from `won` so promo money is not booked as profit. Losers carry no share.
     """
     player_invested = {s["username"]: _ZERO for s in parsed.seats}
 
@@ -240,16 +241,38 @@ def _compute_financials(parsed: ParsedHand):
                     player_invested[uname] += increment
                 street_put_in[uname] = amt
 
-    # Cash Drop is money GG injects into the pot. Nobody "invested" it, but the
-    # winner's `collected` includes their share of it, so without this the drop
-    # would be booked as profit and inflate bb/100. Strip each player's pro-rata
-    # share of the drop, weighted by how much they put in.
+    # Cash Drop is money GG injects into the pot. Nobody invested it, but the
+    # winner's `collected` includes it, so without this correction the drop is
+    # booked as profit and inflates bb/100. The drop is paid to whoever wins
+    # the pot, therefore only *winners* give up a slice — weighted by how much
+    # of the pot they took. Charging losers too (the old pro-rata-by-investment
+    # rule) invented a loss for players who never touched the money.
     cash_drop_share: dict[str, Decimal] = {}
-    if parsed.cash_drop_received > 0:
-        total_invested = sum(player_invested.values())
-        if total_invested > 0:
-            for uname, inv in player_invested.items():
-                cash_drop_share[uname] = parsed.cash_drop_received * inv / total_invested
+    drop = parsed.cash_drop_received
+    if drop > 0:
+        total_collected = sum(parsed.collected.values())
+        if total_collected > 0:
+            base = parsed.collected
+            total_base = total_collected
+        else:
+            # Degenerate hand with no `collected` line at all. Fall back to
+            # investment so the withheld total still equals the drop and the
+            # `sum(won) == -total_fees` invariant keeps holding.
+            base = player_invested
+            total_base = sum(player_invested.values())
+        if total_base > 0:
+            cash_drop_share = {
+                uname: drop * amt / total_base
+                for uname, amt in base.items()
+                if amt > 0
+            }
+            # Decimal division rounds, so give the residue to the biggest
+            # taker. Exactness here matters: the balance invariant is
+            # asserted on Decimal values, not floats.
+            residue = drop - sum(cash_drop_share.values())
+            if residue and cash_drop_share:
+                biggest = max(cash_drop_share, key=lambda u: cash_drop_share[u])
+                cash_drop_share[biggest] += residue
 
     # All-in EV calculation
     all_in_ev_bb_map: dict[str, float] = {}

@@ -97,9 +97,14 @@ SELECT COUNT(*) FROM (
 **Cash Drop is not profit.** GG injects `Cash Drop to Pot` money into the pot.
 Nobody invests it, but the winner's `collected` includes a share of it — so
 booking it as-is inflates bb/100. `_compute_financials` returns a
-`cash_drop_share` map (each player's slice, weighted by what they invested) and
-the caller subtracts it. The drop is also removed from the all-in EV `dist`,
-since it was never risked.
+`cash_drop_share` map and the caller subtracts it. **Only the players who took
+the pot give up a slice, weighted by their share of `collected`** — the money is
+paid out with the pot, so charging everyone who put chips in invents a loss for
+losers who never received it (that was the v5 rule; it understated hero's
+bb/100 by roughly one drop per Cash Drop hand hero won). The residue from
+Decimal division goes to the biggest taker so `sum(share) == drop` holds
+exactly. The drop is also removed from the all-in EV `dist`, since it was never
+risked.
 
 **`total_rake` is pure Rake.** Jackpot/Bingo/Fortune/Tax are siblings of it on
 the summary line, not components, and are summed separately into `total_fees`.
@@ -107,7 +112,7 @@ The all-in EV math must subtract `total_fees` (using `total_rake` leaves the
 fees in the pot and inflates EV). `hand_players.rake` + `hand_players.jackpot`
 must decompose the fee exactly once — see `_migrate_rake_excludes_jackpot`.
 
-**`STAT_VERSION` is at 5**, which triggers a full rebuild on next launch. The
+**`STAT_VERSION` is at 6**, which triggers a full rebuild on next launch. The
 rebuild is load-bearing: it applies the Cash Drop correction to `won`/`won_bb`
 and re-derives all-in EV. If you downgrade STAT_VERSION, those stay unapplied.
 

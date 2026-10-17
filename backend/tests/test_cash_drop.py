@@ -10,8 +10,6 @@ The invariant that pins this down: for every hand,
 
 from decimal import Decimal
 
-import pytest
-
 from app.api.import_hands import _compute_financials
 from app.parsers.ggpoker import parse_hand_history
 
@@ -150,27 +148,45 @@ class TestCashDrop:
         """The withheld shares must add back up to exactly the drop amount."""
         p = parse_hand_history(CASH_DROP_HAND)
         invested, _, share = _compute_financials(p)
-        assert float(sum(share.values())) == pytest.approx(
-            float(p.cash_drop_received)
-        )
+        assert sum(share.values()) == p.cash_drop_received
 
-    def test_drop_is_split_pro_rata_by_investment(self):
-        """The biggest investor gives up the biggest slice of the drop."""
+    def test_drop_is_charged_to_the_pot_winner(self):
+        """Only the player who took the pot gives up a slice of the drop.
+
+        The drop is paid out with the pot, so the money lands on the winner.
+        Splitting it across everyone who put chips in would invent a loss for
+        players who never received it.
+        """
         p = parse_hand_history(CASH_DROP_HAND)
         invested, _, share = _compute_financials(p)
-        # Hero shoved 2.21 of the 3.02 total, so Hero should give up the most.
-        biggest = max(invested, key=lambda u: invested[u])
-        assert biggest == "Hero"
-        assert share["Hero"] == max(share.values())
+        assert set(share) <= set(p.collected)
+        # Hero is the only one who collected, i.e. the whole drop is on Hero.
+        assert share == {"Hero": p.cash_drop_received}
 
-    def test_folded_player_still_gets_no_free_money(self):
-        """A player who folded preflop invested only the blind.
+    def test_losers_are_not_charged_the_drop(self):
+        """A losing player's result is exactly what they put in.
 
-        Their share of the drop is proportional to that blind, so it can't
-        flip a small loss into a win.
+        Before this rule the losers were docked a share of a promotion they
+        never saw, so their loss was overstated and the winner's gain
+        understated.
         """
+        p = parse_hand_history(CASH_DROP_HAND)
+        invested, _, share = _compute_financials(p)
+        for uname, inv in invested.items():
+            if uname in p.collected:
+                continue
+            assert share.get(uname, Decimal("0")) == 0
+            net = (
+                p.uncalled_returns.get(uname, Decimal("0"))
+                - inv
+                - share.get(uname, Decimal("0"))
+            )
+            assert net == -inv
+
+    def test_folded_player_gets_no_free_money(self):
+        """A player who never posted anything nets exactly zero."""
         p = parse_hand_history(CASH_DROP_HAND)
         invested, _, share = _compute_financials(p)
         # f1960e2a folded without posting a blind at all.
         assert invested["f1960e2a"] == Decimal("0")
-        assert share["f1960e2a"] == 0
+        assert share.get("f1960e2a", Decimal("0")) == 0
