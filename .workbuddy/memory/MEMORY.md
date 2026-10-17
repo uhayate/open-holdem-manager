@@ -2,7 +2,7 @@
 
 用户 fork `uhayate/open-holdem-manager`（源自 `AHTOOOXA/…`，origin 走 SSH）。纯本地 / 单用户 / 无云无鉴权的扑克手牌追踪器（对标 Hand2Note），**只支持 GGPoker**。
 
-**→ 技术栈 / 架构（Parse→Compute→Insert）/ `STAT_VERSION=5` / **位置命名约定 + ante 桌格式差异（GG 写 `posts the ante`、header `($0.02/$0.05($0.01))`、`sb≠bb/2`）/ rake 与 jackpot 的口径（`total_rake` 纯 Rake、`total_fees` 全额、恒等式 `sum(net_won)==-total_fees`）** / 全部硬约束（`_lock` 必须 RLock、重建事务边界、坏 WAL 自愈、优雅关闭、长任务轮询 `shutdown_requested()`、如何安全关掉运行中实例）/ `npm run check` / 打包流程：全在 `CLAUDE.md`。改代码前先读它。**
+**→ 技术栈 / 架构（Parse→Compute→Insert）/ `STAT_VERSION=6` / **位置命名约定 + ante 桌格式差异（GG 写 `posts the ante`、header `($0.02/$0.05($0.01))`、`sb≠bb/2`）/ rake 与 jackpot 的口径（`total_rake` 纯 Rake、`total_fees` 全额、恒等式 `sum(net_won)==-total_fees`）** / 全部硬约束（`_lock` 必须 RLock、重建事务边界、坏 WAL 自愈、优雅关闭、长任务轮询 `shutdown_requested()`、如何安全关掉运行中实例）/ `npm run check` / 打包流程：全在 `CLAUDE.md`。改代码前先读它。**
 
 ## 打包（2026-10-10 定）
 - **`backend:build` 必须带 `--collect-all eval7`**：`eval7/__init__.py` 会 `from .handrange import HandRange`
@@ -59,8 +59,8 @@
 ## 状态
 - 用户装的是本 fork 构建（`%LOCALAPPDATA%\Programs\Open Holdem Manager\`），**版本号仍是 0.0.10**；改源码**必须重装** `release/*Setup.exe`。
 - **关掉运行中实例**：`netstat -ano | grep LISTENING | grep <ohm-backend-pid>` 找端口 → `curl -X POST --noproxy '*' http://127.0.0.1:<port>/api/shutdown`（**永不 taskkill**）。
-- 真实数据 `%APPDATA%\open-holdem-manager\data\poker.duckdb`，运行时独占锁定。**stat_version=4 / 无 WAL**。现 **5,801 手 / 56MB**（全部 6max，2NL Fast Fold，1bb=$0.02）；GG 自带工具另有 **10,548 手** —— **两个数据源别混用**。**hero `player_id=2037`（9132 行，10-17 核对；旧的 1005 已失效）**。`players` 表的用户名列叫 **`username`**，不是 `name`。真实库尚未迁移，下次启动新版会跑 3 件事：`EP/MP→UTG/HJ`、`rake-=jackpot`、**STAT_VERSION 4→5 全量重建**（约 50s，修 Cash Drop + 回填 all-in EV）。
-- **核心恒等式：每手 `sum(won) == -total_fees`**。破了就是有钱凭空产生/消失。写 SQL 一条就能验（残差恰好 0.001 是 `DECIMAL(18,3)` 精度，不是 bug）。**Cash Drop 是 GG 送的钱，必须从各人 `won` 里扣**，否则算成利润（曾让 bb/100 从 4.68 虚高到 5.31）—— 但**扣的权重是错的那一环，见下方「计算层已核验」**。
+- 真实数据 `%APPDATA%\open-holdem-manager\data\poker.duckdb`，运行时独占锁定。现 **9,132 手 / 95MB**（全部 6max，2NL Fast Fold，1bb=$0.02）；GG 自带工具另有 **10,548 手** —— **两个数据源别混用**。**hero `player_id=2037`**。`players` 表的用户名列叫 **`username`**，不是 `name`。`workspaces` 表**没有** `hero_player_id`，只有 `hero_username`/`hero_site`；找 hero 直接 `SELECT id FROM players WHERE username='Hero'`。
+- **核心恒等式：每手 `sum(won) == -total_fees`**。破了就是有钱凭空产生/消失。写 SQL 一条就能验（残差恰好 0.001 是 `DECIMAL(18,3)` 精度，不是 bug）。**Cash Drop 是 GG 送的钱，必须从收池者的 `won` 里扣**，否则算成利润（曾让 bb/100 从 4.68 虚高到 5.31）。
 
 ## 计算层已核验（2026-10-17，别再重复查）
 **方法**：绕开程序自己，从 `raw_text` 独立重解析再比对库内值。要点：
@@ -81,14 +81,16 @@
   `(?:FIRST |SECOND )?FLOP`；
 - `Seat N: name ($X in chips)` 与 `Seat N: name won ($X)` 都会被宽松正则匹配到，座位名要用 `(\$[\d.]+ in chips)` 限定。
 
-**未决：Cash Drop 分摊口径（`import_hands.py::_compute_financials`）**
-现行 `share = drop × invested / total_invested` —— **连没赢到促销钱的人也被扣**，等于把促销变成所有人的净成本，
-与它自己注释的意图（不计入利润）不一致。实测 hero 9132 手：A 真实到账 **+0.27 bb/100**、B 现行 **−0.32**、
-C 只从收到钱的人身上剔（按 `collected` 加权）**−0.16**。**已上报，等用户拍板；C 是最小修正**（`parsed.collected` 已存在）。
+**Cash Drop 分摊 = 只由赢家承担（2026-10-17 定案，commit a45e6b5）**
+旧规则 `share = drop × invested / total_invested` 连**没赢到促销钱的人**也扣，等于把促销变成所有人的净成本，
+与它自己注释的意图（不计入利润）不一致。**现行 = 按 `collected` 加权，只给收池的人**（`parsed.collected` 为空时才退回按投入分，保底守恒）；
+Decimal 除法余数补给最大份额，保证 `sum(share) == drop` **精确**成立（恒等式在 Decimal 上断言，不能用 float）。
+实测 hero 9132 手：**bb/100 −0.24 → −0.08**（+14.34 bb / 涉及 13 手），全库 `sum(won)`/`sum(won_bb)` **守恒不变**，逐手恒等式 0 处不符。
+**别改回按投入分摊** —— 那是在让输家替促销买单。`STAT_VERSION=6`。
 
 **EV 的已知限制（不是 bug，但要知道）**：`all_in_ev_bb` 只在 **heads-up 且双方手牌都已知** 时才真正不同于 `won_bb`
 （`len(remaining)==2`）。全库 54805 行只有 **242 行**、hero 9132 手只有 **43 手**；多人全下一律退回实际结果。
-所以 EV bb/100（−1.94）vs 实际（−0.24）那 1.7 bb/100 的差全部来自这 43 手，别拿它当「长期 EV 表现」。
+所以 EV bb/100（−1.91）vs 实际（−0.08）那 1.8 bb/100 的差全部来自这 43 手，别拿它当「长期 EV 表现」。
 - **读数据**：**应用在跑时库独占锁 → 走 HTTP API**（端口同上）：`/api/reports/graph`、`/api/stats/hero`、`/api/reports/breakdown`。**没跑时**才直连 `sys.path.insert(0,'backend')` → `app.stats_engine.compute_hero_stats(conn,'',workspace_id=1)`（`duckdb.connect(path, read_only=True)`）。**`model_dump()` 里 PositionalStats 有 `total`，`wtsd`/`wsd`/`wwsf`/`af_*` 等单值 StatValue 没有** —— 统一取 `['total']` 会误读成 None。
 - **曲线口径**（`reports.py`）：每手按 hero 是否 `went_to_showdown` **整手**归两桶 → **Actual(黄) = Showdown(绿) + Non-Showdown(红)**，恒等。**累计值差分 = 单手结果** → 可算 σ/SE/CI，判断是真 leak 还是噪音。
 - ~~已知缺陷（未修）：`vs_steal_fold` 的 `total` 是 SB+BB 混算，却拿 BB 口径基准 40–55 判定 → leak 恒假阳性~~
