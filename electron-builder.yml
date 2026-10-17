@@ -6,6 +6,13 @@ directories:
   output: release
   buildResources: build
 
+# No auto-update, no publishing. This MUST be an explicit `null` rather than an
+# omitted key: when `publish` is absent electron-builder falls back to guessing a
+# GitHub provider from package.json's `repository` field and still writes
+# resources/app-update.yml into the package. Explicit null short-circuits that
+# (see app-builder-lib/out/publish/PublishManager.js:getPublishConfigs).
+publish: null
+
 # Only package the electron/ folder (main process code)
 files:
   - electron/**/*
@@ -45,6 +52,11 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
+  # Differential packages exist only to produce the .blockmap consumed by
+  # electron-updater, which this app no longer ships. Disabling also restores
+  # solid 7z compression (differential-aware archiving forces solid=false and
+  # dictSize=1), so the installer actually gets smaller.
+  differentialPackage: false
 
 linux:
   target:
