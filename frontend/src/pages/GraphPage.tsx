@@ -898,8 +898,20 @@ function BreakdownTable<T>({
   );
 }
 
-function renderRake(r: { rake_usd: number }) {
-  return <span className="text-red">${r.rake_usd.toFixed(2)}</span>;
+// "Fees" = rake + jackpot — the same total the footer headlines, so the tables
+// and the summary strip cannot drift apart. Kept single-line on purpose: these
+// tables are read as a dense breakdown, and the split is one hover away.
+function renderFees(r: { rake_usd: number; jackpot_usd: number }) {
+  const total = r.rake_usd + r.jackpot_usd;
+  const split =
+    r.jackpot_usd > 0
+      ? `Rake $${r.rake_usd.toFixed(2)} · Jackpot $${r.jackpot_usd.toFixed(2)}`
+      : `Rake $${r.rake_usd.toFixed(2)}`;
+  return (
+    <span className="text-red" title={split}>
+      ${total.toFixed(2)}
+    </span>
+  );
 }
 
 function colorVal(v: number): string {
@@ -908,7 +920,7 @@ function colorVal(v: number): string {
   return 'text-text-muted';
 }
 
-const COL_WIDTHS = { label: '22%', hands: '16%', won: '18%', bb100: '16%', ev_bb100: '16%', rake: '12%' };
+const COL_WIDTHS = { label: '22%', hands: '16%', won: '18%', bb100: '16%', ev_bb100: '16%', fees: '12%' };
 
 const stakeColumns: Column<StakeBreakdown>[] = [
   { key: 'stakes', label: 'Stakes', width: COL_WIDTHS.label, render: (r) => {
@@ -940,11 +952,11 @@ const stakeColumns: Column<StakeBreakdown>[] = [
     render: (r) => <span className={colorVal(r.ev_bb_per_100)}>{r.ev_bb_per_100.toFixed(2)}</span>,
   },
   {
-    key: 'rake',
-    label: 'Rake',
+    key: 'fees',
+    label: 'Fees',
     align: 'right',
-    width: COL_WIDTHS.rake,
-    render: (r) => renderRake(r),
+    width: COL_WIDTHS.fees,
+    render: (r) => renderFees(r),
   },
 ];
 
@@ -976,11 +988,11 @@ const positionColumns: Column<PositionBreakdown>[] = [
     render: (r) => <span className={colorVal(r.ev_bb_per_100)}>{r.ev_bb_per_100.toFixed(2)}</span>,
   },
   {
-    key: 'rake',
-    label: 'Rake',
+    key: 'fees',
+    label: 'Fees',
     align: 'right',
-    width: COL_WIDTHS.rake,
-    render: (r) => renderRake(r),
+    width: COL_WIDTHS.fees,
+    render: (r) => renderFees(r),
   },
 ];
 
@@ -1012,10 +1024,10 @@ const monthColumns: Column<MonthBreakdown>[] = [
     render: (r) => <span className={colorVal(r.ev_bb_per_100)}>{r.ev_bb_per_100.toFixed(2)}</span>,
   },
   {
-    key: 'rake',
-    label: 'Rake',
+    key: 'fees',
+    label: 'Fees',
     align: 'right',
-    width: COL_WIDTHS.rake,
-    render: (r) => renderRake(r),
+    width: COL_WIDTHS.fees,
+    render: (r) => renderFees(r),
   },
 ];

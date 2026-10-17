@@ -260,6 +260,13 @@ function SessionDetail({ index }: { index: number }) {
   const grossEvRateBB = n > 0 ? (grossEvBB / n) * 100 : 0;
   const hasFees = stats.rake_bb + stats.jackpot_bb > 0;
 
+  // Fee figures, same shape as the graph page footer: the headline is the total
+  // charge, the sub-line spells out the split because GG bills rake and jackpot
+  // as two separate lines and the /100 form is what makes sessions comparable.
+  const feesUSD = stats.rake_usd + stats.jackpot_usd;
+  const rakePerBB = n > 0 ? (stats.rake_bb / n) * 100 : 0;
+  const jackpotPerBB = n > 0 ? (stats.jackpot_bb / n) * 100 : 0;
+
   return (
     <div className="w-full space-y-1.5">
       {/* Header info strip */}
@@ -450,8 +457,13 @@ function SessionDetail({ index }: { index: number }) {
             <div className="text-xs text-text-muted">Non-SD <span className={`font-mono ${clr(nsdRateBB)}`}>{nsdRateBB.toFixed(1)}/100</span></div>
           </div>
           <div>
-            <div className="text-sm font-bold font-mono text-text-muted">{fmtUSD(stats.rake_usd)}</div>
-            <div className="text-xs text-text-muted">Rake <span className="font-mono">{fmtBB(stats.rake_bb)}</span></div>
+            <div className="text-sm font-bold font-mono text-text-muted">{fmtUSD(feesUSD)}</div>
+            <div className="text-xs text-text-muted">
+              Fees · Rake <span className="font-mono">{fmtUSD(stats.rake_usd)} ({rakePerBB.toFixed(1)}/100)</span>
+              {stats.jackpot_bb > 0 && (
+                <> · Jackpot <span className="font-mono">{fmtUSD(stats.jackpot_usd)} ({jackpotPerBB.toFixed(1)}/100)</span></>
+              )}
+            </div>
           </div>
           <div>
             <div className="text-sm font-bold font-mono text-text">{stats.hands_per_hour > 0 ? Math.round(stats.hands_per_hour) : '\u2014'}</div>
