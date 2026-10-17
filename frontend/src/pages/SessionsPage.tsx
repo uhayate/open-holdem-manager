@@ -249,9 +249,9 @@ function SessionDetail({ index }: { index: number }) {
   const n = stats.hands;
   const durationHrs = stats.duration_minutes / 60;
 
-  // Pre-deduction ("gross") figures, matching the graph page: rake and jackpot
-  // are already taken out of the winner's collected amount, so adding them back
-  // reconstructs the result as if no fee had been charged.
+  // "Before fees" figures, matching the graph page: rake and jackpot are already
+  // taken out of the winner's collected amount, so adding them back reconstructs
+  // the result as if no fee had been charged.
   const grossBB = stats.won_bb + stats.rake_bb + stats.jackpot_bb;
   const grossUSD = stats.won_usd + stats.rake_usd + stats.jackpot_usd;
   const grossRateBB = n > 0 ? (grossBB / n) * 100 : 0;
@@ -401,7 +401,7 @@ function SessionDetail({ index }: { index: number }) {
             <div className="text-[10px] text-text-muted uppercase tracking-wide">Rate</div>
             {hasFees && (
               <div className="col-span-2 mt-1 text-[11px] font-mono text-text-muted">
-                Gross {fmtUSD(grossUSD)} · {fmtBB(grossBB)} · {grossRateBB.toFixed(2)} bb/100
+                Before fees {fmtUSD(grossUSD)} · {fmtBB(grossBB)} · {grossRateBB.toFixed(2)} bb/100
               </div>
             )}
           </div>
@@ -416,7 +416,7 @@ function SessionDetail({ index }: { index: number }) {
                 <div className="text-[10px] text-text-muted uppercase tracking-wide">EV Rate</div>
                 {hasFees && (
                   <div className="col-span-2 mt-1 text-[11px] font-mono text-text-muted">
-                    Gross {fmtUSD(grossEvUSD)} · {fmtBB(grossEvBB)} · {grossEvRateBB.toFixed(2)} bb/100
+                    Before fees {fmtUSD(grossEvUSD)} · {fmtBB(grossEvBB)} · {grossEvRateBB.toFixed(2)} bb/100
                   </div>
                 )}
               </>

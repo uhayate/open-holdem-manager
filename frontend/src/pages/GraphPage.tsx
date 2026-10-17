@@ -386,17 +386,18 @@ export default function GraphPage() {
   const sdRateBB = n > 0 ? (sdBB / n) * 100 : 0;
   const nsdRateBB = n > 0 ? (nsdBB / n) * 100 : 0;
 
-  // Pre-deduction ("gross") figures: what the results would have been with no
-  // rake and no jackpot taken. Both are already charged out of the winner's
-  // collected amount, so adding them back reconstructs the gross result — the
-  // same number the fee drag is measured against.
+  // "Before fees" figures — labelled that way in the UI: what the results would
+  // have been with no rake and no jackpot taken. Both are already charged out of
+  // the winner's collected amount, so adding them back reconstructs the
+  // pre-fee result. rake + jackpot are the only fee columns in the schema, so
+  // this really is everything the room took.
   const grossBB = wonBB + rakeBB + jackpotBB;
   const grossUSD = wonUSD + rakeUSD + jackpotUSD;
   const grossRateBB = n > 0 ? (grossBB / n) * 100 : 0;
   const grossEvBB = evBB + rakeBB + jackpotBB;
   const grossEvUSD = evUSD + rakeUSD + jackpotUSD;
   const grossEvRateBB = n > 0 ? (grossEvBB / n) * 100 : 0;
-  // Only worth showing when fees were actually charged; otherwise the gross
+  // Only worth showing when fees were actually charged; otherwise the before-fees
   // line would just repeat the net figure above it.
   const hasFees = rakeBB + jackpotBB > 0;
 
@@ -710,7 +711,7 @@ export default function GraphPage() {
               <div className="text-[10px] text-text-muted uppercase tracking-wide">Rate</div>
               {hasFees && (
                 <div className="col-span-2 mt-1 text-[11px] font-mono text-text-muted">
-                  Gross {fmtUSD(grossUSD)} · {fmtBB(grossBB)} · {grossRateBB.toFixed(2)} bb/100
+                  Before fees {fmtUSD(grossUSD)} · {fmtBB(grossBB)} · {grossRateBB.toFixed(2)} bb/100
                 </div>
               )}
             </div>
@@ -726,7 +727,7 @@ export default function GraphPage() {
                   <div className="text-[10px] text-text-muted uppercase tracking-wide">EV Rate</div>
                   {hasFees && (
                     <div className="col-span-2 mt-1 text-[11px] font-mono text-text-muted">
-                      Gross {fmtUSD(grossEvUSD)} · {fmtBB(grossEvBB)} · {grossEvRateBB.toFixed(2)} bb/100
+                      Before fees {fmtUSD(grossEvUSD)} · {fmtBB(grossEvBB)} · {grossEvRateBB.toFixed(2)} bb/100
                     </div>
                   )}
                 </>
