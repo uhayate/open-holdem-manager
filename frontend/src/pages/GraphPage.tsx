@@ -45,6 +45,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import FeesFigure from '@/components/stats/FeesFigure';
 
 function formatXTick(value: number) {
   if (value >= 1000) return `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k`;
@@ -386,7 +387,6 @@ export default function GraphPage() {
   const evRateBB = n > 0 ? (evBB / n) * 100 : 0;
   const rakePerBB = n > 0 ? (rakeBB / n) * 100 : 0;
   const jackpotPerBB = n > 0 ? (jackpotBB / n) * 100 : 0;
-  const feesUSD = rakeUSD + jackpotUSD;
   const sdRateBB = n > 0 ? (sdBB / n) * 100 : 0;
   const nsdRateBB = n > 0 ? (nsdBB / n) * 100 : 0;
 
@@ -767,20 +767,15 @@ export default function GraphPage() {
               <div className={`text-sm font-bold font-mono ${clr(nsdUSD)}`}>{fmtUSD(nsdUSD)}</div>
               <div className="text-xs text-text-muted">Non-SD <span className={`font-mono ${clr(nsdRateBB)}`}>{nsdRateBB.toFixed(1)}/100</span></div>
             </div>
-            {/* Fees = rake + Jackpot. The headline is the total, and the split
-                is spelled out because the two are separate charges on the GG
-                summary line. "Jackpot" is the word the hand history itself
-                uses — it is not spelled out there, so we do not expand it. */}
+            {/* Fees = rake + Jackpot. Shared with the Sessions summary strip so
+                the two pages cannot render the same figure differently. */}
             <div>
-              <div className="text-sm font-bold font-mono text-text-muted">
-                {fmtUSD(feesUSD)}
-              </div>
-              <div className="text-xs text-text-muted">
-                Fees · Rake <span className="font-mono">{fmtUSD(rakeUSD)} ({rakePerBB.toFixed(1)}/100)</span>
-                {jackpotBB > 0 && (
-                  <> · Jackpot <span className="font-mono">{fmtUSD(jackpotUSD)} ({jackpotPerBB.toFixed(1)}/100)</span></>
-                )}
-              </div>
+              <FeesFigure
+                rakeUSD={rakeUSD}
+                jackpotUSD={jackpotUSD}
+                rakePerBB={rakePerBB}
+                jackpotPerBB={jackpotPerBB}
+              />
             </div>
           </div>
         </Card>
