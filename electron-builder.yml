@@ -2,9 +2,6 @@ appId: com.openholdemmanager.app
 productName: Open Holdem Manager
 copyright: Copyright © 2025
 
-publish:
-  provider: github
-
 directories:
   output: release
   buildResources: build

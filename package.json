@@ -26,8 +26,5 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/uhayate/open-holdem-manager.git"
-  },
-  "dependencies": {
-    "electron-updater": "^6.7.3"
   }
 }

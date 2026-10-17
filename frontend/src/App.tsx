@@ -17,7 +17,6 @@ import ImportOverlay from '@/components/ImportOverlay';
 import DragDropOverlay from '@/components/DragDropOverlay';
 import AppSidebar from '@/components/AppSidebar';
 import RebuildBanner from '@/components/RebuildBanner';
-import UpdateBanner from '@/components/UpdateBanner';
 import { getStatDisplayName } from '@/lib/stat-registry';
 import StatsPage from './pages/StatsPage';
 import GraphPage from './pages/GraphPage';
@@ -140,7 +139,6 @@ export default function App() {
               </Routes>
             </main>
             <RebuildBanner />
-            <UpdateBanner />
           </SidebarInset>
         </SidebarProvider>
         <ImportOverlay />
