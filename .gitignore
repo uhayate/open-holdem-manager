@@ -50,5 +50,10 @@ backend/*.spec
 .env
 .env.local
 
-# Local AI assistant workspace
-.workbuddy/
+# Local AI assistant workspace. The memory notes ARE committed on purpose: they
+# carry the project context (gotchas, conventions, past decisions) that the next
+# agent or session needs to pick up without re-deriving it. Everything else in
+# here is regenerable or transient -- screenshots are binary debug artifacts
+# (~1.8MB) and caches churn on every run.
+.workbuddy/*
+!.workbuddy/memory/
