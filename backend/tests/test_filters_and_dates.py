@@ -11,7 +11,9 @@ class TestNormalizeDateTo:
     """A bare date as an upper bound silently dropped the whole final day."""
 
     def test_bare_date_expands_to_end_of_day(self):
-        assert normalize_date_to("2026-10-04") == "2026-10-04 23:59:59"
+        # Microsecond precision: played_at is a DuckDB TIMESTAMP, so a
+        # second-resolution bound still dropped 23:59:59.4.
+        assert normalize_date_to("2026-10-04") == "2026-10-04 23:59:59.999999"
 
     def test_explicit_time_is_left_alone(self):
         assert normalize_date_to("2026-10-04 12:30:00") == "2026-10-04 12:30:00"
@@ -26,7 +28,7 @@ class TestNormalizeDateTo:
         assert normalize_date_to("") == ""
 
     def test_surrounding_whitespace_tolerated(self):
-        assert normalize_date_to("  2026-10-04  ") == "2026-10-04 23:59:59"
+        assert normalize_date_to("  2026-10-04  ") == "2026-10-04 23:59:59.999999"
 
 
 class TestNoEmptyInClause:
@@ -58,3 +60,25 @@ class TestDriftOppWindow:
 
         row = next(r for r in _DRIFT_STATS_V2 if r[0] == "three_bet")
         assert row[2] == "AND hp.three_bet_opp = true"
+
+    def test_fold_to_steal_is_bb_only(self):
+        """SB and BB fold frequencies are not comparable; never pool them."""
+        from app.api.reports import _DRIFT_STATS_V2
+
+        row = next(r for r in _DRIFT_STATS_V2 if r[0] == "fold_to_steal")
+        assert "position = 'BB'" in row[2]
+
+    def test_groups_are_generated_from_the_single_stat_list(self):
+        """Both the lifetime and window queries derive from _DRIFT_STATS_V2.
+
+        If this ever stops holding, the two definitions can drift apart again --
+        which is exactly the bug this file exists to pin.
+        """
+        from app.api.reports import _DRIFT_STATS_V2, _grouped_drift_stats
+
+        grouped = [key for _, group in _grouped_drift_stats() for key, _ in group]
+        declared = [key for key, _, _ in _DRIFT_STATS_V2]
+        # Bucketing reorders (stats sharing a filter are adjacent), so compare
+        # as sets and assert nothing is dropped or duplicated.
+        assert sorted(grouped) == sorted(declared)
+        assert len(grouped) == len(set(grouped))

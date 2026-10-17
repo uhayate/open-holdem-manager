@@ -13,6 +13,13 @@ export interface BenchmarkRange {
   statFlagFilter?: string;
   /** opportunity column (also must be true) for "View hands" link */
   oppFlagFilter?: string;
+  /**
+   * Restrict the "View hands" link to one position.
+   * Needed when the stat's `total` is itself a single-position figure (see
+   * vs_steal_fold): otherwise the drilled-down hand list would include hands
+   * that the number was never computed from.
+   */
+  positionFilter?: string;
 }
 
 export interface PositionalBenchmarks {
@@ -190,15 +197,20 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
       oppFlagFilter: 'steal_opp',
     },
   },
+  // BB only -- the backend's `total` for this stat is restricted to the BB for
+  // the same reason: SB and BB fold frequencies are not comparable, so a
+  // blended figure cannot be judged against this range. SB is shown separately
+  // in the stats card and is a different animal entirely (~80% is correct).
   vs_steal_fold: {
     total: {
       low: 40, high: 55,
-      tipLow: 'Defending blinds too much vs steals. Calling too wide OOP.',
-      tipHigh: 'Folding too much in the blinds. Opponents can steal freely.',
+      tipLow: 'Defending the BB too much vs steals. Calling too wide out of position.',
+      tipHigh: 'Folding too much in the BB. Opponents can steal your blind freely.',
       fix: 'Defend ~45-60% from BB vs BTN opens. Mix 3-bets with calls.',
       weight: 3,
       statFlagFilter: 'fold_to_steal',
       oppFlagFilter: 'faced_steal',
+      positionFilter: 'BB',
     },
   },
   cbet_flop: {
@@ -411,6 +423,7 @@ export function computeLeaks(stats: HeroStats, minSample = 200): Leak[] {
     const params = new URLSearchParams();
     if (benchmark.statFlagFilter) params.append('stat_flag', benchmark.statFlagFilter);
     if (benchmark.oppFlagFilter) params.append('stat_flag', benchmark.oppFlagFilter);
+    if (benchmark.positionFilter) params.append('position', benchmark.positionFilter);
     const handFilterUrl = params.toString() ? `/hands?${params}` : '/hands';
 
     leaks.push({

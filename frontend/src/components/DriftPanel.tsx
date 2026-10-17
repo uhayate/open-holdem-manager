@@ -84,11 +84,28 @@ function DriftStatCard({ drift }: { drift: DriftStat }) {
   );
 }
 
-export default function DriftPanel({ stats, totalHands }: {
+export default function DriftPanel({ stats, totalHands, minHands = 20000 }: {
   stats: DriftStat[];
   totalHands: number;
+  minHands?: number;
 }) {
-  if (totalHands < 20000 || stats.length === 0) return null;
+  // Below the threshold the endpoint returns no stats. Say so explicitly --
+  // silently rendering nothing makes a working feature look broken.
+  if (totalHands < minHands) {
+    return (
+      <Card className="gap-0 py-0 overflow-hidden">
+        <div className="px-3 py-2 flex items-center gap-2">
+          <span className="text-[13px] font-bold text-text">Strategy Drift</span>
+          <span className="text-[11px] text-text-muted">
+            Needs {minHands.toLocaleString()} hands to compare your recent 20%
+            against your lifetime average — {totalHands.toLocaleString()} so far.
+          </span>
+        </div>
+      </Card>
+    );
+  }
+
+  if (stats.length === 0) return null;
 
   return (
     <Card className="gap-0 py-0 overflow-hidden">

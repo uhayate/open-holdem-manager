@@ -53,7 +53,16 @@
 - **核心恒等式：每手 `sum(won) == -total_fees`**。破了就是有钱凭空产生/消失。写 SQL 一条就能验（残差恰好 0.001 是 `DECIMAL(18,3)` 精度，不是 bug）。**Cash Drop 是 GG 送的钱，必须按投入比例从各人 `won` 里扣**，否则算成利润（曾让 bb/100 从 4.68 虚高到 5.31）。
 - **读数据**：**应用在跑时库独占锁 → 走 HTTP API**（端口同上）：`/api/reports/graph`、`/api/stats/hero`、`/api/reports/breakdown`。**没跑时**才直连 `sys.path.insert(0,'backend')` → `app.stats_engine.compute_hero_stats(conn,'',workspace_id=1)`（`duckdb.connect(path, read_only=True)`）。**`model_dump()` 里 PositionalStats 有 `total`，`wtsd`/`wsd`/`wwsf`/`af_*` 等单值 StatValue 没有** —— 统一取 `['total']` 会误读成 None。
 - **曲线口径**（`reports.py`）：每手按 hero 是否 `went_to_showdown` **整手**归两桶 → **Actual(黄) = Showdown(绿) + Non-Showdown(红)**，恒等。**累计值差分 = 单手结果** → 可算 σ/SE/CI，判断是真 leak 还是噪音。
-- **已知缺陷（未修）**：`benchmarks.ts` 的 `vs_steal_fold` 只有 `total` 基准（BB 口径 40–55），数值却是 **SB+BB 混算** → SB 必判红，`computeLeaks()` 第 1 名恒为假阳性（拆开：BB 52.5% 正常 / SB 86%）。只有 leak 面板有此问题，`StatsCard` 格子是分位的。
+- ~~已知缺陷（未修）：`vs_steal_fold` 的 `total` 是 SB+BB 混算，却拿 BB 口径基准 40–55 判定 → leak 恒假阳性~~
+  **2026-10-17 已修**：`vs_steal_{fold,call,3bet}` 的 `total` 一律改为 **BB only**（`_pos_steal` 的 `total_positions` 参数），
+  因为 SB/BB 根本不同尺度（跟注 2.4% vs 25.1%，3-bet 反而 12.2% vs 6.6%，方向都相反）。
+  **推而广之：任何「分位可比性不成立」的统计，`total` 都不许混算** —— 否则 `computeLeaks` 只读 `.total` 就必然误判。
+  leak 的「看手牌」链接必须带 `position=BB`（`BenchmarkRange.positionFilter`），否则列表和数值不同源。
+- **drift 的口径只能有一个来源**：`reports.py::_DRIFT_STATS_V2` 是唯一真源，`_grouped_drift_stats()` 按 `opp_filter`
+  分桶后同时生成 lifetime 与 window 两条 SQL。**历史教训**：曾经 `_LT_MAP`（下标映射）+ `_WINDOW_GROUPS` +
+  `_DRIFT_STATS_V2` 三份定义并存，前两份写错（`fold_to_3bet` 用 `three_bet_opp` 做分母，两者**完全不相交**，
+  3455 行全 NULL → AVG=0 → 永远不触发）而第三份是对的且只有测试在引用 → **测试绿着、线上错着**。
+  同理：凡「同一件事在两个地方各写一遍」的代码，迟早漂移。
 - ~~已知缺陷（未修）：rake 重复扣 jackpot~~ **2026-10-10 已修**：`total_rake` 曾把 jackpot 一起加进去，导入时又减一次 `per_player_jackpot`。现在 `total_rake`=纯 Rake、新增 `total_fees`=全部费用；`_migrate_rake_excludes_jackpot` 用 `rake = rake - jackpot` 修既 389 行（幂等，settings key `rake_jackpot_split`）。校验：389 行与全量重解析 **0 处不一致**，rake+jackpot 精确等于总费用。**当时为何没人发现**：`won_bb` 走 `collected+uncalled-invested`，根本不读这两列 → 统计图表全对，纯粹是显示层。
 - **前端费用口径已全部统一为 `Fees = rake + jackpot`（2026-10-17 收尾，提交 d89c8e4）**，四处：Graph 页脚格、Graph 折线按钮、Sessions 详情摘要条第 4 格、Graph 三张 breakdown 表列。**别再单独显示纯 rake 标成 `Rake`** —— 本样本纯 rake 只占 72%，会低估 34–46%。breakdown 表**故意保持单行**（密集表，拆分放 `title`），页脚/摘要条则大数=总额、小字=`Fees · Rake $x (a/100) · Jackpot $y (b/100)`。**缩写 `BBJ` 已废弃**，只用 GG 手牌历史里的原词 `Jackpot`。
 - **验证真实数据别先信自己编的样本**：我编的 ante fixture 座位/用户名不一致导致 `KeyError`；后来「把真实手牌的 Cash Drop 行删掉当对照组」又造出一个不存在的 bug。**要对照就取真实的另一手牌，别手改。**

@@ -65,6 +65,13 @@ def normalize_date_to(value: str | None) -> str | None:
     on the final day of the range. Callers pass this through, not the raw
     value. An explicit time component is left alone.
 
+    The expansion goes to ``23:59:59.999999``, not ``23:59:59``: DuckDB
+    timestamps are microsecond-precision, so the second-resolution bound still
+    leaked anything with a fractional second. The queries all use ``<=``, which
+    is why the last representable instant of the day is the correct bound —
+    switching to an exclusive next-midnight bound would mean rewriting every
+    call site for no extra accuracy.
+
     Every endpoint that filters on a date range must use this. Lower bounds
     need no equivalent: `>= YYYY-MM-DD` already means 00:00 of that day.
     """
@@ -73,7 +80,7 @@ def normalize_date_to(value: str | None) -> str | None:
     v = value.strip()
     # DuckDB also accepts 'YYYY-MM-DDTHH:MM:SS'; treat T as "has a time".
     if len(v) <= 10 and "T" not in v and " " not in v:
-        return v + " 23:59:59"
+        return v + " 23:59:59.999999"
     return v
 
 

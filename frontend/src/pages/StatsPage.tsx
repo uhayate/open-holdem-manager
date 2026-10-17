@@ -90,13 +90,19 @@ function StatsListView() {
     queryFn: () => getHeroStats(filterParams),
   });
 
-  // Drift detection
-  const { driftMap, stats: driftStats, totalHands: driftTotalHands } = useDrift({
+  // Drift detection. Not gated on hand count here: the endpoint cheaply
+  // short-circuits below its own threshold and reports it back, which is what
+  // lets the panel show progress instead of vanishing.
+  const {
+    driftMap,
+    stats: driftStats,
+    totalHands: driftTotalHands,
+    minHands: driftMinHands,
+  } = useDrift({
     stakes: filterParams.stakes,
     game_mode: filterParams.game_mode,
     date_from: filterParams.date_from,
     date_to: filterParams.date_to,
-    enabled: (stats?.hands ?? 0) >= 20000,
   });
 
   const handleStatClick = useCallback((key: string, position?: string) => {
@@ -248,7 +254,7 @@ function StatsListView() {
         {stats.hands >= 200 && <LeakSummaryPanel stats={stats} />}
 
         {/* ── Drift Panel ── */}
-        <DriftPanel stats={driftStats} totalHands={driftTotalHands} />
+        <DriftPanel stats={driftStats} totalHands={driftTotalHands} minHands={driftMinHands} />
       </div>
     </TooltipProvider>
   );

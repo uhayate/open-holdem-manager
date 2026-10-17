@@ -58,15 +58,6 @@ export interface GraphPoint {
   cumulative_nonshowdown_usd: number;
 }
 
-export interface VarianceStats {
-  sd_bb: number;
-  sd_bb100: number;
-  winrate_bb100: number;
-  ci_lower_bb100: number;
-  ci_upper_bb100: number;
-  n: number;
-}
-
 export interface SessionMarker {
   start_hand: number;
   end_hand: number;
@@ -77,7 +68,6 @@ export interface SessionMarker {
 export interface GraphResponse {
   points: GraphPoint[];
   sessions: SessionMarker[];
-  variance: VarianceStats | null;
 }
 
 export interface StatValue {
@@ -877,6 +867,7 @@ export interface DriftResponse {
   stats: DriftStat[];
   window_hands: number;
   total_hands: number;
+  min_hands: number;
 }
 
 export async function getDrift(params?: {

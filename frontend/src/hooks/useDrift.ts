@@ -8,6 +8,7 @@ export interface UseDriftResult {
   driftMap: Map<string, DriftStat>;
   stats: DriftStat[];
   totalHands: number;
+  minHands: number;
 }
 
 export function useDrift(params: {
@@ -46,5 +47,6 @@ export function useDrift(params: {
     driftMap,
     stats: data?.stats ?? [],
     totalHands: data?.total_hands ?? 0,
+    minHands: data?.min_hands ?? 0,
   };
 }

@@ -32,15 +32,6 @@ class GraphPoint(BaseModel):
     cumulative_nonshowdown_usd: float = 0.0
 
 
-class VarianceStats(BaseModel):
-    sd_bb: float  # per-hand standard deviation
-    sd_bb100: float  # SD scaled to bb/100
-    winrate_bb100: float
-    ci_lower_bb100: float  # 95% CI lower bound
-    ci_upper_bb100: float  # 95% CI upper bound
-    n: int
-
-
 class SessionMarker(BaseModel):
     start_hand: int
     end_hand: int
@@ -51,7 +42,6 @@ class SessionMarker(BaseModel):
 class GraphResponse(BaseModel):
     points: list[GraphPoint]
     sessions: list[SessionMarker] = []
-    variance: VarianceStats | None = None
 
 
 class StatValue(BaseModel):
@@ -332,6 +322,9 @@ class DriftResponse(BaseModel):
     stats: list[DriftStat] = []
     window_hands: int = 0
     total_hands: int = 0
+    # Surfaced so the UI can explain the empty state instead of silently
+    # hiding the panel when the sample is too small to be meaningful.
+    min_hands: int = 0
 
 
 # ── Range Page Models ────────────────────────────────────────────────

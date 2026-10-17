@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 from app.db import get_read_cursor, get_hero_player_id, normalize_date_to
 from app.parsers.common import POSITION_DISPLAY_ORDER
-from app.models import GraphPoint, GraphResponse, VarianceStats, SessionMarker, FilterOptions, StakeBreakdown, MonthBreakdown, PositionBreakdown, ResultsBreakdown, DriftStat, DriftResponse
+from app.models import GraphPoint, GraphResponse, SessionMarker, FilterOptions, StakeBreakdown, MonthBreakdown, PositionBreakdown, ResultsBreakdown, DriftStat, DriftResponse
 import math
 from datetime import datetime, timedelta
 
@@ -23,7 +23,7 @@ def get_graph(
     db = get_read_cursor()
     player_id = get_hero_player_id(db, workspace_id)
     if not player_id:
-        return GraphResponse(points=[], sessions=[], variance=None)
+        return GraphResponse(points=[], sessions=[])
 
     query = """
         SELECT hp.won_bb, COALESCE(hp.all_in_ev_bb, hp.won_bb),
@@ -62,7 +62,6 @@ def get_graph(
         rows = rows[-last_n:]
 
     points: list[GraphPoint] = []
-    won_bb_values: list[float] = []
     session_starts: list[int] = []
     timestamps: list[str] = []
     prev_played_at: datetime | None = None
@@ -83,7 +82,6 @@ def get_graph(
     for i, (won_bb, ev_bb, rake_bb, played_at, won_usd, rake_usd, ev_usd, went_sd, jp_bb, jp_usd) in enumerate(rows):
         won_bb_val = float(won_bb or 0)
         won_usd_val = float(won_usd or 0)
-        won_bb_values.append(won_bb_val)
 
         # Session detection
         if isinstance(played_at, str):
@@ -130,25 +128,6 @@ def get_graph(
             cumulative_nonshowdown_usd=round(cum_nsd_usd, 2),
         ))
 
-    # Compute variance stats
-    variance: VarianceStats | None = None
-    n = len(won_bb_values)
-    if n >= 2:
-        mean = sum(won_bb_values) / n
-        sq_diffs = sum((x - mean) ** 2 for x in won_bb_values)
-        sd_per_hand = math.sqrt(sq_diffs / (n - 1))
-        sd_bb100 = round(sd_per_hand * 10, 2)
-        winrate_bb100 = round(mean * 100, 2)
-        se_bb100 = sd_per_hand * 100 / math.sqrt(n)
-        variance = VarianceStats(
-            sd_bb=round(sd_per_hand, 4),
-            sd_bb100=sd_bb100,
-            winrate_bb100=winrate_bb100,
-            ci_lower_bb100=round(winrate_bb100 - 1.96 * se_bb100, 2),
-            ci_upper_bb100=round(winrate_bb100 + 1.96 * se_bb100, 2),
-            n=n,
-        )
-
     # Build session markers from session_starts
     sessions: list[SessionMarker] = []
     for j, start in enumerate(session_starts):
@@ -160,7 +139,7 @@ def get_graph(
             end_time=timestamps[end - 1] if end - 1 < len(timestamps) else "",
         ))
 
-    return GraphResponse(points=points, sessions=sessions, variance=variance)
+    return GraphResponse(points=points, sessions=sessions)
 
 
 
@@ -369,6 +348,13 @@ def get_breakdown(
 # Each stat: (key, value_expr, opp_filter)
 # value_expr: SQL expression for the 0/1 value
 # opp_filter: SQL WHERE clause fragment for opportunity filtering
+#
+# This list is the SINGLE source of truth: both the lifetime and the window
+# queries below are generated from it, grouped by opp_filter. Do not reintroduce
+# a hand-maintained index map -- that is exactly how fold_to_3bet ended up
+# averaging a column that is NULL for every three_bet_opp row (three_bet_opp and
+# fold_to_3bet IS NOT NULL are disjoint sets), leaving the stat permanently at 0
+# and therefore permanently suppressed by _check_drift.
 _DRIFT_STATS_V2: list[tuple[str, str, str]] = [
     ("vpip",               "CAST(hp.vpip AS DOUBLE)",               ""),
     ("pfr",                "CAST(hp.pfr AS DOUBLE)",                ""),
@@ -384,9 +370,29 @@ _DRIFT_STATS_V2: list[tuple[str, str, str]] = [
     ("went_to_showdown",   "CAST(hp.went_to_showdown AS DOUBLE)",   "AND hp.saw_flop = true"),
     ("won_at_showdown",    "CAST(hp.won_at_showdown AS DOUBLE)",    "AND hp.went_to_showdown = true"),
     ("steal",              "CAST(hp.steal_attempted AS DOUBLE)",    "AND hp.steal_opp = true"),
-    ("fold_to_steal",      "CAST(hp.fold_to_steal AS DOUBLE)",      "AND hp.faced_steal = true"),
+    # BB only. SB and BB fold frequencies are not comparable (SB is out of
+    # position, closes less action and correctly folds far more), so a blended
+    # figure cannot be judged against any single benchmark -- see the identical
+    # restriction in stats_engine.vs_steal_fold.
+    ("fold_to_steal",      "CAST(hp.fold_to_steal AS DOUBLE)",      "AND hp.faced_steal = true AND hp.position = 'BB'"),
     ("wwsf",               "CASE WHEN hp.won_bb > 0 THEN 1.0 ELSE 0.0 END", "AND hp.saw_flop = true"),
 ]
+
+# Below this many hands, a 20%-window comparison is noise, so the endpoint
+# short-circuits. The UI reads it back to explain the empty state.
+_DRIFT_MIN_HANDS = 20000
+
+
+def _grouped_drift_stats() -> list[tuple[str, list[tuple[str, str]]]]:
+    """_DRIFT_STATS_V2 bucketed by opportunity filter, declaration order kept.
+
+    Stats sharing a filter share one aggregate query (and therefore one sample
+    size); stats with different filters must never be averaged together.
+    """
+    buckets: dict[str, list[tuple[str, str]]] = {}
+    for stat_key, value_expr, opp_filter in _DRIFT_STATS_V2:
+        buckets.setdefault(opp_filter, []).append((stat_key, value_expr))
+    return list(buckets.items())
 
 _DRIFT_INTERPRETATIONS: dict[str, dict[str, str]] = {
     "vpip":              {"up": "Playing more hands than usual",        "down": "Playing fewer hands than usual"},
@@ -472,117 +478,63 @@ def get_drift(
         params,
     ).fetchone()[0]
 
-    if total_count < 20000:
-        return DriftResponse(total_hands=total_count)
+    if total_count < _DRIFT_MIN_HANDS:
+        return DriftResponse(total_hands=total_count, min_hands=_DRIFT_MIN_HANDS)
 
     # Window = last 20% of hands
     window_size = max(1, int(total_count * 0.20))
 
     results: list[DriftStat] = []
 
-    # ── One query for ALL lifetime stats ──
-    lt = db.execute(
+    groups = _grouped_drift_stats()
+
+    # ── Lifetime: one aggregate per opportunity filter ──
+    lifetime_data: dict[str, tuple[float, int]] = {}
+    for opp_filter, stats_in_group in groups:
+        row = db.execute(
+            f"""
+            SELECT {', '.join(f'AVG({expr})' for _, expr in stats_in_group)}, COUNT(*)
+            FROM hand_players hp
+            JOIN hands h ON hp.hand_id = h.id AND hp.workspace_id = h.workspace_id
+            WHERE {where} {opp_filter}
+            """,
+            params,
+        ).fetchone()
+        n_val = int(row[len(stats_in_group)])
+        if n_val == 0:
+            continue
+        for i, (stat_key, _) in enumerate(stats_in_group):
+            lifetime_data[stat_key] = (
+                float(row[i]) if row[i] is not None else 0.0,
+                n_val,
+            )
+
+    # AFq flop lifetime -- a ratio of sums, so it cannot share the AVG queries.
+    afq_lt = db.execute(
         f"""
-        SELECT
-            AVG(CAST(hp.vpip AS DOUBLE)), COUNT(*),
-            AVG(CAST(hp.pfr AS DOUBLE)),
-            AVG(CAST(hp.three_bet AS DOUBLE)) FILTER (WHERE hp.three_bet_opp),
-            COUNT(*) FILTER (WHERE hp.three_bet_opp),
-            AVG(CAST(hp.fold_to_3bet AS DOUBLE)) FILTER (WHERE hp.three_bet_opp),
-            AVG(CAST(hp.cbet_flop AS DOUBLE)) FILTER (WHERE hp.cbet_flop_opp),
-            COUNT(*) FILTER (WHERE hp.cbet_flop_opp),
-            AVG(CAST(hp.fold_to_cbet_flop AS DOUBLE)) FILTER (WHERE hp.fold_to_cbet_flop IS NOT NULL),
-            COUNT(*) FILTER (WHERE hp.fold_to_cbet_flop IS NOT NULL),
-            AVG(CAST(hp.went_to_showdown AS DOUBLE)) FILTER (WHERE hp.saw_flop),
-            COUNT(*) FILTER (WHERE hp.saw_flop),
-            AVG(CAST(hp.won_at_showdown AS DOUBLE)) FILTER (WHERE hp.went_to_showdown),
-            COUNT(*) FILTER (WHERE hp.went_to_showdown),
-            AVG(CAST(hp.steal_attempted AS DOUBLE)) FILTER (WHERE hp.steal_opp),
-            COUNT(*) FILTER (WHERE hp.steal_opp),
-            AVG(CAST(hp.fold_to_steal AS DOUBLE)) FILTER (WHERE hp.faced_steal),
-            COUNT(*) FILTER (WHERE hp.faced_steal),
-            AVG(CASE WHEN hp.won_bb > 0 THEN 1.0 ELSE 0.0 END) FILTER (WHERE hp.saw_flop),
-            SUM(hp.flop_bets + hp.flop_raises) FILTER (WHERE hp.saw_flop),
-            SUM(hp.flop_bets + hp.flop_raises + hp.flop_calls + hp.flop_checks + hp.flop_folds) FILTER (WHERE hp.saw_flop)
+        SELECT SUM(hp.flop_bets + hp.flop_raises),
+               SUM(hp.flop_bets + hp.flop_raises + hp.flop_calls + hp.flop_checks + hp.flop_folds)
         FROM hand_players hp
         JOIN hands h ON hp.hand_id = h.id AND hp.workspace_id = h.workspace_id
-        WHERE {where}
+        WHERE {where} AND hp.saw_flop = true
         """,
         params,
     ).fetchone()
+    afq_lt_num = int(afq_lt[0] or 0)
+    afq_lt_den = int(afq_lt[1] or 0)
 
-    # Map: (stat_key, lt_avg_idx, lt_n_idx)
-    # vpip/pfr share count at idx 1
-    _LT_MAP = [
-        ("vpip",              0,  1),
-        ("pfr",               2,  1),
-        ("three_bet",         3,  4),
-        ("fold_to_3bet",      5,  4),
-        ("cbet_flop",         6,  7),
-        ("fold_to_cbet_flop", 8,  9),
-        ("went_to_showdown",  10, 11),
-        ("won_at_showdown",   12, 13),
-        ("steal",             14, 15),
-        ("fold_to_steal",     16, 17),
-        ("wwsf",              18, 11),  # shares saw_flop count
-    ]
-
-    lifetime_data: dict[str, tuple[float, int]] = {}
-    for stat_key, avg_idx, n_idx in _LT_MAP:
-        avg_val = float(lt[avg_idx]) if lt[avg_idx] is not None else 0.0
-        n_val = int(lt[n_idx])
-        if n_val > 0:
-            lifetime_data[stat_key] = (avg_val, n_val)
-
-    # AFq flop lifetime
-    afq_lt_num = int(lt[19]) if lt[19] is not None else 0
-    afq_lt_den = int(lt[20]) if lt[20] is not None else 0
-
-    # ── Window queries grouped by opp_filter ──
-    _WINDOW_GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
-        ("", [
-            ("vpip", "CAST(hp.vpip AS DOUBLE)"),
-            ("pfr", "CAST(hp.pfr AS DOUBLE)"),
-        ]),
-        ("AND hp.three_bet_opp = true", [
-            ("three_bet", "CAST(hp.three_bet AS DOUBLE)"),
-            ("fold_to_3bet", "CAST(hp.fold_to_3bet AS DOUBLE)"),
-        ]),
-        ("AND hp.cbet_flop_opp = true", [
-            ("cbet_flop", "CAST(hp.cbet_flop AS DOUBLE)"),
-        ]),
-        ("AND hp.fold_to_cbet_flop IS NOT NULL", [
-            ("fold_to_cbet_flop", "CAST(hp.fold_to_cbet_flop AS DOUBLE)"),
-        ]),
-        ("AND hp.saw_flop = true", [
-            ("went_to_showdown", "CAST(hp.went_to_showdown AS DOUBLE)"),
-            ("wwsf", "CASE WHEN hp.won_bb > 0 THEN 1.0 ELSE 0.0 END"),
-        ]),
-        ("AND hp.went_to_showdown = true", [
-            ("won_at_showdown", "CAST(hp.won_at_showdown AS DOUBLE)"),
-        ]),
-        ("AND hp.steal_opp = true", [
-            ("steal", "CAST(hp.steal_attempted AS DOUBLE)"),
-        ]),
-        ("AND hp.faced_steal = true", [
-            ("fold_to_steal", "CAST(hp.fold_to_steal AS DOUBLE)"),
-        ]),
-    ]
-
+    # ── Window: same grouping, limited to the last 20% of opportunities ──
     window_data: dict[str, tuple[float, int]] = {}
 
-    for opp_filter, stats_in_group in _WINDOW_GROUPS:
+    for opp_filter, stats_in_group in groups:
         # Skip if none of these stats have lifetime data
         if not any(sk in lifetime_data for sk, _ in stats_in_group):
             continue
 
-        select_parts = [f"AVG({expr}) AS v{i}" for i, (_, expr) in enumerate(stats_in_group)]
-        select_sql = ", ".join(select_parts) + ", COUNT(*)"
-
         row = db.execute(
             f"""
             WITH recent AS (
-                SELECT {', '.join(expr + f' AS c{i}' for i, (_, expr) in enumerate(stats_in_group))}
+                SELECT {', '.join(f'{expr} AS c{i}' for i, (_, expr) in enumerate(stats_in_group))}
                 FROM hand_players hp
                 JOIN hands h ON hp.hand_id = h.id AND hp.workspace_id = h.workspace_id
                 WHERE {where} {opp_filter}
@@ -595,12 +547,13 @@ def get_drift(
         ).fetchone()
 
         cnt = int(row[len(stats_in_group)])
-        for i, (sk, _) in enumerate(stats_in_group):
-            avg = float(row[i]) if row[i] is not None else 0.0
-            window_data[sk] = (avg, cnt)
+        for i, (stat_key, _) in enumerate(stats_in_group):
+            window_data[stat_key] = (
+                float(row[i]) if row[i] is not None else 0.0, cnt,
+            )
 
     # ── Build results for boolean stats ──
-    for stat_key in [sk for sk, _, _ in _LT_MAP]:
+    for stat_key, _, _ in _DRIFT_STATS_V2:
         if stat_key not in lifetime_data or stat_key not in window_data:
             continue
         lt_avg, lt_n = lifetime_data[stat_key]
@@ -665,6 +618,7 @@ def get_drift(
         stats=results,
         window_hands=window_size,
         total_hands=total_count,
+        min_hands=_DRIFT_MIN_HANDS,
     )
 
 

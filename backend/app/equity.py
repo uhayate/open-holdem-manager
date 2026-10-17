@@ -5,6 +5,7 @@ Handles heads-up all-in equity with enumeration (≤2 cards to come)
 or Monte Carlo sampling (preflop all-ins).
 """
 
+import hashlib
 import random
 from itertools import combinations
 
@@ -14,11 +15,25 @@ import eval7
 _FULL_DECK = [eval7.Card(r + s) for r in "23456789TJQKA" for s in "shdc"]
 
 
+def _cards_seed(hero: tuple[str, str], villain: tuple[str, str], board: list[str]) -> int:
+    """Stable RNG seed derived from the exact matchup.
+
+    Preflop equity is sampled, so an unseeded RNG made the number wobble on
+    every rebuild — two identical imports could disagree, and a before/after
+    comparison of "Rebuild Stats" could not distinguish a real change from
+    sampling noise. Seeding per matchup keeps it reproducible; the sample count
+    still determines accuracy.
+    """
+    key = "|".join(hero) + "/" + "|".join(villain) + "/" + "|".join(board)
+    return int.from_bytes(hashlib.blake2b(key.encode(), digest_size=8).digest(), "big")
+
+
 def calculate_headsup_equity(
     hero_cards: tuple[str, str],
     villain_cards: tuple[str, str],
     board: list[str],
     num_samples: int = 10000,
+    seed: int | None = None,
 ) -> float:
     """Calculate hero's equity in a heads-up all-in.
 
@@ -27,6 +42,8 @@ def calculate_headsup_equity(
         villain_cards: Villain's hole cards, e.g. ('Qs', 'Ts')
         board: Board cards at the all-in point, e.g. ['Qh', '9d', '3c']
         num_samples: Monte Carlo sample count for preflop all-ins
+        seed: RNG seed; defaults to a stable hash of the matchup so repeated
+            imports produce identical equity values
 
     Returns:
         Hero equity as float 0.0-1.0
@@ -67,8 +84,9 @@ def calculate_headsup_equity(
             total += 1
     else:
         # Monte Carlo for preflop all-ins (C(48,5) = 1.7M combos)
+        rng = random.Random(seed if seed is not None else _cards_seed(hero_cards, villain_cards, board))
         for _ in range(num_samples):
-            sample = random.sample(remaining, cards_to_come)
+            sample = rng.sample(remaining, cards_to_come)
             full_board = board_cards + sample
             hero_rank = eval7.evaluate(hero + full_board)
             villain_rank = eval7.evaluate(villain + full_board)

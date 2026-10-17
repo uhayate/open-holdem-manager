@@ -255,10 +255,27 @@ def _compute_stats_from_query(
         o = int(tot.get(opp_key, 0))
         return StatValue(value=round(c / o * 100, 1) if o > 0 else None, sample=o)
 
-    def _pos_steal(count_key: str, opp_key: str, positions: list[str]) -> PositionalStats:
+    def _pos_steal(
+        count_key: str,
+        opp_key: str,
+        positions: list[str],
+        total_positions: list[str] | None = None,
+    ) -> PositionalStats:
         ps = PositionalStats()
-        t_c = int(tot.get(count_key, 0))
-        t_o = int(tot.get(opp_key, 0))
+        if total_positions is None:
+            t_c = int(tot.get(count_key, 0))
+            t_o = int(tot.get(opp_key, 0))
+        else:
+            # Some stats cannot be pooled: their benchmark, and the way the
+            # position plays, differ enough that a blended number is not
+            # comparable with anything. Summing a named subset keeps `total`
+            # meaningful in that case.
+            t_c = 0
+            t_o = 0
+            for pos in total_positions:
+                pd = by_pos.get(pos) or {}
+                t_c += int(pd.get(count_key, 0))
+                t_o += int(pd.get(opp_key, 0))
         ps.total = StatValue(value=round(t_c / t_o * 100, 1) if t_o > 0 else None, sample=t_o)
         for pos in positions:
             pd = by_pos.get(pos)
@@ -307,9 +324,15 @@ def _compute_stats_from_query(
     stats.four_bet_fold_steal = _pos_steal("steal_4bet_fold", "steal_4bet_fold_opp", STEAL_POSITIONS)
 
     # vs Steal
-    stats.vs_steal_fold = _pos_steal("fold_to_steal", "faced_steal", ["SB", "BB"])
-    stats.vs_steal_call = _pos_steal("call_steal", "faced_steal", ["SB", "BB"])
-    stats.vs_steal_3bet = _pos_steal("three_bet_vs_steal", "faced_steal", ["SB", "BB"])
+    # `total` is BB-only on purpose. SB and BB fold frequencies are not on the
+    # same scale (SB is out of position with less dead money in, and correctly
+    # folds far more often), so pooling them produced a number that matched no
+    # position and could not be judged against a single-position benchmark --
+    # the leak panel flagged ~68% "folding too much" while the two positions
+    # were really 81% (SB, normal) and 58% (BB, near-target).
+    stats.vs_steal_fold = _pos_steal("fold_to_steal", "faced_steal", ["SB", "BB"], ["BB"])
+    stats.vs_steal_call = _pos_steal("call_steal", "faced_steal", ["SB", "BB"], ["BB"])
+    stats.vs_steal_3bet = _pos_steal("three_bet_vs_steal", "faced_steal", ["SB", "BB"], ["BB"])
 
     # Postflop CBets
     stats.cbet_flop = _pos_stat("cbet_flop", "cbet_flop_opp")
