@@ -10,9 +10,19 @@
   `import eval7` 整个失败 → `import_hands.py` 的 `except ImportError` 静默把 `_calc_equity` 设成 None
   → **打包版 all-in EV 退化成实际收益**（藏了很久，dev 环境正常所以直觉发现不了）。
   **验证方法：同一份库分别跑 dev 和安装包内后端，比 `win_rate_ev_bb100`** —— 相等就是没算出来。
-- **`npm run build` 会在 PyInstaller COLLECT 卡住**（safe-delete 挡 `backend/dist` 删除，710 项 > 50 阈值）。
-  先 `CODEBUDDY_SAFE_DELETE_ENABLED=0 rm -rf backend/dist backend/build`（**需要 dangerouslyDisableSandbox**），
-  再单独 `npm run backend:build` + `npx electron-builder --publish never`。
+- **`electron-builder` 只把 `backend/dist/ohm-backend` 拷进 `resources/backend`（`extraResources`），绝不重建后端。**
+  改成 `npm run frontend:build && npx electron-builder` ≠ 完整构建 —— 改过后端却只跑这两条，会打出
+  **新前端 + 旧后端**的包：界面照旧显示旧数字，而且看起来像「修复没生效」，实际是根本没被编译进去。
+  2026-10-17 就白打了一版（用户截图 `vs Steal Fold 68% / 1,120 hands`，1120 = SB 467 + BB 653 的旧混算值）。
+  **规则：只要动过 `backend/`，就必须 `npm run backend:build`。**
+  最快的校验：`ls -l backend/dist/ohm-backend/ohm-backend.exe` 的时间必须晚于所有 `backend/app/**` 改动。
+  最硬的校验（唯一能证明「冻结产物 = 源码」的办法，`eval7` 那个坑就是这么藏的）：
+  复制库到临时目录 → `OHM_DATA_DIR=<tmp> ./ohm-backend.exe` → `netstat -ano | grep LISTENING | grep <pid>`
+  拿端口 → `curl --noproxy '*' http://127.0.0.1:<port>/api/stats/hero` → `curl -X POST .../api/shutdown` 优雅关。
+- **`npm run build` / 任何 `backend:build` 只要 `backend/dist` 已存在就会在 COLLECT 卡住**
+  （safe-delete 挡删除，710 项 > 50 阈值，报 `SAFE_DELETE_BULK_CONFIRM_REQUIRED` 后被静默吞掉，
+  产物时间戳停在旧值 → 表现和「构建成功」一样）。
+  每次都要先 `CODEBUDDY_SAFE_DELETE_ENABLED=0 rm -rf backend/dist backend/build`，再 `npm run backend:build`。
   ⚠️ 删 `backend/build`，**别动根目录 `build/`**（图标，构建需要）。
 - **打包一律走默认流程**：`npx electron-builder --publish never`（输出到 `release/`）。
   **若报 err 32（`app.asar` 被占用）→ 立刻停下并通知用户**，他用火绒「解除占用」释放句柄后再重试。
