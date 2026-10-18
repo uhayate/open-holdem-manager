@@ -239,6 +239,35 @@ but is excluded from `street_put_in` so `"raise to X"` stays relative to the
 blinds. The invariant that proves all of this holds is
 `sum(net_won) == -total_rake` per hand — see `test_pot_balances`.
 
+## GGPoker Tournaments (MTT)
+
+Tournament exports are a third shape. Three differences, all of which used to
+abort with `Cannot parse header line`:
+
+- The header puts the **event name** where cash tables put the blinds, and the
+  blinds live in a level tag:
+  `Poker Hand #TM…: Tournament #…, Daily Hyper $1 Hold'em No Limit - Level13(350/700(85)) - …`
+  → `RE_HEADER_MTT`. Group 4/5 are the blinds, 6 the ante. `RE_HEADER` (cash)
+  is tried first; the `$` amounts in this header belong to the buy-in, not the
+  blinds.
+- Amounts **drop the `$` and add thousands separators** (`collected 13,906
+  from pot`, `Total pot 13,906`). Every money pattern is built from the `_AMT`
+  fragment and every captured value goes through `_dec()`. Do not write
+  `\$([0-9.]+)` anywhere — it silently rejects every tournament hand.
+- **`bb_amount` comes straight from the level tag.** `_detect_bb` exists to
+  repair corrupted cash stakes and snaps toward standard ones; a 350/700 level
+  would be mangled. `stakes` is `MTT 350/700` (chips, not currency) so
+  `formatStakes` doesn't render it as `NL70000`.
+
+`game_mode` is `MTT` (hand IDs start with `TM`; `detect()` already lists it).
+Fees are normally 0, so the balance identity is trivial but still asserted.
+
+**bb/100 is meaningless across a tournament.** The bb changes every few hands,
+so 4,000 MTT hands summed as `won_bb` produce a number that mixes 100bb stacks
+with 10bb stacks. Frequency stats (VPIP/PFR/3-bet/position) are fine; don't
+read the MTT win rate as a win rate. Keeping MTT in its own workspace is the
+supported way to avoid mixing it into cash results.
+
 Note `total_rake` is **pure Rake** — Jackpot/Bingo/Fortune/Tax are siblings of
 it on the summary line, not components, and are summed separately into
 `total_fees`. The balance identity is `sum(net_won) == -total_fees`. The all-in
