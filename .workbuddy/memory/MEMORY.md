@@ -25,16 +25,14 @@
   每次都要先 `CODEBUDDY_SAFE_DELETE_ENABLED=0 rm -rf backend/dist backend/build`，再 `npm run backend:build`。
   ⚠️ 删 `backend/build`，**别动根目录 `build/`**（图标，构建需要）。
 - **打包一律走默认流程**：`npx electron-builder --publish never`（输出到 `release/`）。
-- **err 32（`release/win-unpacked/resources/app.asar` 被占用）的已验证绕行（2026-10-18）**：
-  锁定者是 WorkBuddy 自己（pid 会变，用 `rstrtmgr.dll` 的 `RmStartSession`/`RmRegisterResources`/`RmGetList` 查），
-  `os.replace` / `rm -rf` / `shutil.rmtree` / genie-trash **全部报 WinError 32 或 trash 失败** ——
-  连重命名都不行，因为句柄没带 `FILE_SHARE_DELETE`。**等一会儿也没用**（新生成的 asar 也会立刻被锁）。
-  唯一可行：`npx electron-builder --publish never --config.directories.output=release-tmp`
-  → **必须校验** `release-tmp/win-unpacked/resources/backend/ohm-backend.exe` 的时间戳 = `backend:build` 完成时间
-  → 把 `release-tmp/Open Holdem Manager-Setup.exe` 复制覆盖 `release/` 那份 → 校验 `release/` 里 Setup.exe 的时间戳是新的。
+- **err 32（`release/win-unpacked/resources/app.asar` 被占用）的两种解法**
+  锁定者是 WorkBuddy 自己（pid 会变，用 `rstrtmgr.dll` 的 `RmStartSession`/`RmRegisterResources`/`RmGetList` 查）。
+  被锁时 `os.replace` / `rm -rf` / `shutil.rmtree` / genie-trash **全部报 WinError 32 或 trash 失败** —— 连重命名都不行（句柄没带 `FILE_SHARE_DELETE`）。
+  - **解法 A（首选）**：让用户用**火绒「解除占用」**放掉 `release/win-unpacked`，删掉该目录后重跑默认 `npx electron-builder --publish never`。2026-10-18 实测有效。
+  - **解法 B（不能打扰用户时）**：`--config.directories.output=release-tmp` 打包 → **校验** `release-tmp/win-unpacked/resources/backend/ohm-backend.exe` 时间戳 = `backend:build` 完成时间 → 把 Setup.exe 复制覆盖 `release/` 那份。
   **换目录后不拷回来 = 「新前端 + 旧包」，这是本仓库最贵的错误。**
-  `release-tmp` 通常删不掉（`.gitignore` 已含 `release-*/`，不污染 git），留给用户手动删。
-  想彻底避免：打包前先让用户关掉 WorkBuddy，或别把 `release/` 留在会话的工作区里。
+  ⚠️ 注意：WorkBuddy 会**锁住任何新生成的** `**/resources/app.asar`（`release-tmp` 那份一打出来就被锁，删不掉），
+  所以解法 B 会留下 500MB+ 垃圾目录（`.gitignore` 已含 `release-*/`，不污染 git），最终还是要用户手动删。
 - **更新系统已于 2026-10-17 彻底移除**（`electron-updater` 依赖、`app-update.yml`、`UpdateBanner`、`SidebarFooterSettings` 的更新菜单、`__APP_VERSION__`）。
   - **`electron-builder.yml` 里的 `publish: null` 不能省**：`publish` 键缺失 = `undefined` ≠ 不发布，
     会掉进 `getPublishConfigsForUpdateInfo()` 用 package.json 的 `repository` 字段兜底推断 github provider，
