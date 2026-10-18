@@ -25,15 +25,6 @@ _STANDARD_BB = [
 _STANDARD_BB_SET = set(_STANDARD_BB)
 
 
-def _dec(token: str) -> Decimal:
-    """Money token -> Decimal.
-
-    Tournament exports use thousands separators (`13,906`), cash tables do
-    not. Strip them before handing the number to Decimal.
-    """
-    return Decimal(token.replace(",", ""))
-
-
 def _snap_to_nearest_standard(bb: Decimal) -> Decimal:
     """Snap a non-standard BB value to the nearest standard stake.
 
@@ -225,49 +216,33 @@ RE_SKIP = re.compile(
 )
 
 # Regex patterns for parsing
-# A money token. Cash tables write `$0.02`; tournament exports drop the dollar
-# sign and add thousands separators (`13,906`). Both appear in the same
-# "amount" slot, so every money pattern goes through this fragment and every
-# captured value through `_dec`.
-_AMT = r"\$?([\d,]+(?:\.\d+)?)"
-
-# Header for a cash table. A table with an ante carries a third amount:
+# Header for a table with an ante carries a third amount:
 #   Hold'em No Limit ($0.02/$0.05($0.01)) - 2026/10/08 21:41:22
-# Group 4 is the ante (None when the table has none).
+# Group 5 is the ante (None when the table has none).
 RE_HEADER = re.compile(
     r"Poker Hand #(\w+): (?:Tournament #\S+, )?"
     r"Hold'em No Limit \(\$([0-9.]+)/\$([0-9.]+)"
     r"(?:\(\$([0-9.]+)\))?\)"
     r" - (\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})"
 )
-# Header for a tournament. The event name sits between the tournament ID and
-# the game type, and the blinds live in the level tag instead of parentheses:
-#   Poker Hand #TM6224769827: Tournament #300704318, Daily Hyper $1 Hold'em
-#   No Limit - Level13(350/700(85)) - 2026/07/26 21:28:22
-# Group 4/5 are the blinds, group 6 the ante (None when the level has none).
-RE_HEADER_MTT = re.compile(
-    r"Poker Hand #(\w+): Tournament #(\d+), (.+?) "
-    r"Hold'em No Limit - Level\d+\(([\d,]+)/([\d,]+)(?:\(([\d,]+)\))?\)"
-    r" - (\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})"
-)
 RE_TABLE = re.compile(
     r"Table '([^']+)' (\d+)-max Seat #(\d+) is the button"
 )
 RE_SEAT = re.compile(
-    r"Seat (\d+): (.+?) \(" + _AMT + r" in chips\)"
+    r"Seat (\d+): (.+?) \(\$([0-9.]+) in chips\)"
 )
 # GG writes "posts the ante" on ante tables and "posts ante" elsewhere
 RE_ANTE = re.compile(
-    r"^(.+?): posts (?:the )?ante " + _AMT
+    r"^(.+?): posts (?:the )?ante \$([0-9.]+)"
 )
 RE_SMALL_BLIND = re.compile(
-    r"^(.+?): posts small blind " + _AMT
+    r"^(.+?): posts small blind \$([0-9.]+)"
 )
 RE_BIG_BLIND = re.compile(
-    r"^(.+?): posts big blind " + _AMT
+    r"^(.+?): posts big blind \$([0-9.]+)"
 )
 RE_STRADDLE = re.compile(
-    r"^(.+?): posts straddle " + _AMT
+    r"^(.+?): posts straddle \$([0-9.]+)"
 )
 RE_DEALT = re.compile(
     r"Dealt to (.+?) \[(\w{2}) (\w{2})\]"
@@ -275,44 +250,44 @@ RE_DEALT = re.compile(
 RE_FOLD = re.compile(r"^(.+?): folds")
 RE_CHECK = re.compile(r"^(.+?): checks")
 RE_CALL = re.compile(
-    r"^(.+?): calls " + _AMT + r"(?:\s+and is all-in)?"
+    r"^(.+?): calls \$([0-9.]+)(?:\s+and is all-in)?"
 )
 RE_BET = re.compile(
-    r"^(.+?): bets " + _AMT + r"(?:\s+and is all-in)?"
+    r"^(.+?): bets \$([0-9.]+)(?:\s+and is all-in)?"
 )
 RE_RAISE = re.compile(
-    r"^(.+?): raises " + _AMT + r" to " + _AMT + r"(?:\s+and is all-in)?"
+    r"^(.+?): raises \$([0-9.]+) to \$([0-9.]+)(?:\s+and is all-in)?"
 )
 RE_ALLIN_MARKER = re.compile(r"and is all-in")
 RE_UNCALLED = re.compile(
-    r"Uncalled bet \(" + _AMT + r"\) returned to (.+)"
+    r"Uncalled bet \(\$([0-9.]+)\) returned to (.+)"
 )
 RE_COLLECTED = re.compile(
-    r"(.+?) collected \(" + _AMT + r"\)"
+    r"(.+?) collected \(\$([0-9.]+)\)"
 )
 RE_COLLECTED_FROM_POT = re.compile(
-    r"^(.+?) collected " + _AMT + r" from (?:main |side )?pot"
+    r"^(.+?) collected \$([0-9.]+) from (?:main |side )?pot"
 )
 RE_WON = re.compile(
-    r"(.+?) won \(" + _AMT + r"\)"
+    r"(.+?) won \(\$([0-9.]+)\)"
 )
 RE_BOARD = re.compile(r"Board \[(.+?)\]")
 RE_SUMMARY_POT = re.compile(
-    r"Total pot " + _AMT
+    r"Total pot \$([0-9.]+)"
 )
 # Every fee GG lists on the summary line. Jackpot/Bingo/Fortune/Tax are
 # siblings of Rake, not components of it — summing them all here is what
 # `total_fees` is for. Do NOT use this for the `rake` column.
 RE_SUMMARY_FEE = re.compile(
-    r"(?:Rake|Jackpot|Bingo|Fortune|Tax) " + _AMT
+    r"(?:Rake|Jackpot|Bingo|Fortune|Tax) \$([0-9.]+)"
 )
 RE_SUMMARY_RAKE = re.compile(
-    r"Rake " + _AMT
+    r"Rake \$([0-9.]+)"
 )
 RE_SUMMARY_JACKPOT = re.compile(
-    r"Jackpot " + _AMT
+    r"Jackpot \$([0-9.]+)"
 )
-RE_CASH_DROP = re.compile(r"Cash Drop to Pot : total " + _AMT)
+RE_CASH_DROP = re.compile(r"Cash Drop to Pot : total \$([0-9.]+)")
 RE_SUMMARY_SEAT = re.compile(
     r"Seat (\d+): (.+?)(?:\s+\(.*?\))* (?:collected|folded|showed|mucked|lost|won)"
 )
@@ -337,7 +312,7 @@ RE_SHOWDOWN = re.compile(r"\*\*\* (?:FIRST )?SHOW\s?DOWN \*\*\*")
 RE_SUMMARY = re.compile(r"\*\*\* SUMMARY \*\*\*")
 RE_DOES_NOT_SHOW = re.compile(r"^(.+?): does not show hand")
 RE_SHOWS = re.compile(r"^(.+?): shows \[(\w{2}) (\w{2})\]")
-RE_COLLECTED_WON_AMOUNT = re.compile(r"(?:collected|won) \(" + _AMT + r"\)")
+RE_COLLECTED_WON_AMOUNT = re.compile(r"(?:collected|won) \(\$([0-9.]+)\)")
 
 
 def _should_skip(line: str) -> bool:
@@ -371,28 +346,15 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
     lines = [l.strip() for l in lines if l.strip()]
 
     # ── Parse header ──
-    # Two shapes: cash tables put the blinds in parentheses, tournaments put
-    # the event name there and the blinds in a level tag.
-    is_mtt = False
-    tourney_name = ""
     m = RE_HEADER.search(lines[0])
-    if m:
-        hand_id = m.group(1)
-        header_sb = _dec(m.group(2))
-        header_bb = _dec(m.group(3))
-        header_ante = _dec(m.group(4)) if m.group(4) else None
-        played_at = datetime.strptime(m.group(5), "%Y/%m/%d %H:%M:%S")
-    else:
-        m = RE_HEADER_MTT.search(lines[0])
-        if not m:
-            raise ValueError(f"Cannot parse header line: {lines[0]}")
-        is_mtt = True
-        hand_id = m.group(1)
-        tourney_name = m.group(3).strip()
-        header_sb = _dec(m.group(4))
-        header_bb = _dec(m.group(5))
-        header_ante = _dec(m.group(6)) if m.group(6) else None
-        played_at = datetime.strptime(m.group(7), "%Y/%m/%d %H:%M:%S")
+    if not m:
+        raise ValueError(f"Cannot parse header line: {lines[0]}")
+
+    hand_id = m.group(1)
+    header_sb = Decimal(m.group(2))
+    header_bb = Decimal(m.group(3))
+    header_ante = Decimal(m.group(4)) if m.group(4) else None
+    played_at = datetime.strptime(m.group(5), "%Y/%m/%d %H:%M:%S")
 
     # GGPoker has random byte corruption in hand history files that can hit
     # any dollar amount — header stakes, blind postings, bet sizes.
@@ -411,18 +373,18 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         # Stacks
         _sm = RE_SEAT.match(_sl)
         if _sm:
-            _scanned_stacks.append(_dec(_sm.group(3)))
+            _scanned_stacks.append(Decimal(_sm.group(3)))
             continue
         # Posted blinds
         if posted_bb is None:
             _bm = RE_BIG_BLIND.match(_sl)
             if _bm:
-                posted_bb = _dec(_bm.group(2))
+                posted_bb = Decimal(_bm.group(2))
                 continue
         if posted_sb is None:
             _sbm = RE_SMALL_BLIND.match(_sl)
             if _sbm:
-                posted_sb = _dec(_sbm.group(2))
+                posted_sb = Decimal(_sbm.group(2))
                 continue
         # Preflop action amounts
         if "*** HOLE CARDS ***" in _sl:
@@ -436,49 +398,36 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
                 continue
             _rm = RE_RAISE.match(_sl)
             if _rm:
-                preflop_amounts.append(_dec(_rm.group(3)))  # "to" amount
+                preflop_amounts.append(Decimal(_rm.group(3)))  # "to" amount
                 continue
             _cm = RE_CALL.match(_sl)
             if _cm:
-                preflop_amounts.append(_dec(_cm.group(2)))
+                preflop_amounts.append(Decimal(_cm.group(2)))
                 continue
             _bm2 = RE_BET.match(_sl)
             if _bm2:
-                preflop_amounts.append(_dec(_bm2.group(2)))
+                preflop_amounts.append(Decimal(_bm2.group(2)))
                 continue
 
-    if is_mtt:
-        # Level blinds are authoritative. `_detect_bb` exists to repair
-        # corrupted cash-stake headers and snaps toward standard stakes
-        # ($0.02/$0.05/...); running it on a 350/700 level would wreck it.
-        bb_amount = header_bb if header_bb > 0 else (posted_bb or header_sb * 2)
-        sb_amount = posted_sb if posted_sb is not None else header_sb
+    bb_amount = _detect_bb(
+        header_bb, header_sb, posted_bb, posted_sb,
+        preflop_amounts, _scanned_stacks,
+    )
+    # Don't assume SB == BB/2. On ante tables GG runs odd blind/ante combos
+    # (e.g. $0.02/$0.05 with a $0.01 ante), so the posted SB is the truth;
+    # header SB is the fallback when no SB line was captured.
+    if posted_sb is not None:
+        sb_amount = posted_sb
+    elif header_sb > 0:
+        sb_amount = header_sb
     else:
-        bb_amount = _detect_bb(
-            header_bb, header_sb, posted_bb, posted_sb,
-            preflop_amounts, _scanned_stacks,
-        )
-        # Don't assume SB == BB/2. On ante tables GG runs odd blind/ante combos
-        # (e.g. $0.02/$0.05 with a $0.01 ante), so the posted SB is the truth;
-        # header SB is the fallback when no SB line was captured.
-        if posted_sb is not None:
-            sb_amount = posted_sb
-        elif header_sb > 0:
-            sb_amount = header_sb
-        else:
-            sb_amount = bb_amount / 2
+        sb_amount = bb_amount / 2
 
     def _fmt_stake(d: Decimal) -> str:
         if d == d.to_integral_value():
             return f"${int(d)}"
         return f"${d:.2f}"
-    if is_mtt:
-        # Chips, not currency: `$350/$700` would be rendered as "NL70000" by
-        # the stake formatter, which is nonsense. Keep the blinds but label
-        # them as a tournament level.
-        stakes = f"MTT {int(sb_amount)}/{int(bb_amount)}"
-    else:
-        stakes = f"{_fmt_stake(sb_amount)}/{_fmt_stake(bb_amount)}"
+    stakes = f"{_fmt_stake(sb_amount)}/{_fmt_stake(bb_amount)}"
     game_type = "NLH"
 
     # ── Parse table info ──
@@ -491,9 +440,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
     button_seat = int(m.group(3))
 
     # Detect game mode from hand ID prefix and table name
-    if is_mtt or hand_id.startswith("TM"):
-        game_mode = "MTT"
-    elif hand_id.startswith("RC") or table_name.startswith("RushAndCash"):
+    if hand_id.startswith("RC") or table_name.startswith("RushAndCash"):
         game_mode = "Fast Fold"
     else:
         game_mode = ""
@@ -509,7 +456,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
             break
         seat_num = int(m.group(1))
         username = m.group(2)
-        stack = _dec(m.group(3))
+        stack = Decimal(m.group(3))
         seats.append({"seat": seat_num, "username": username, "stack": stack})
         username_to_seat[username] = seat_num
         line_idx += 1
@@ -555,7 +502,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         # Cash Drop line (appears before blinds)
         m = RE_CASH_DROP.search(line)
         if m:
-            cash_drop_received = _dec(m.group(1))
+            cash_drop_received = Decimal(m.group(1))
             continue
 
         # Street markers
@@ -630,12 +577,12 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
                 # and is what the pot/EV math wants.
                 rm = RE_SUMMARY_RAKE.search(line)
                 if rm:
-                    total_rake += _dec(rm.group(1))
+                    total_rake += Decimal(rm.group(1))
                 for fee_m in RE_SUMMARY_FEE.finditer(line):
-                    total_fees += _dec(fee_m.group(1))
+                    total_fees += Decimal(fee_m.group(1))
                 jm = RE_SUMMARY_JACKPOT.search(line)
                 if jm:
-                    total_jackpot = _dec(jm.group(1))
+                    total_jackpot = Decimal(jm.group(1))
                 continue
 
             # Board line fallback — populate board_cards from summary if empty
@@ -664,7 +611,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
             # Find ALL won/collected amounts on this line
             found_any = False
             for m_coll in RE_COLLECTED_WON_AMOUNT.finditer(line):
-                amt = _dec(m_coll.group(1))
+                amt = Decimal(m_coll.group(1))
                 uname = uname_from_seat or "unknown"
                 collected[uname] = collected.get(uname, _ZERO) + amt
                 found_any = True
@@ -684,7 +631,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         m = RE_ANTE.match(line)
         if m:
             uname = m.group(1)
-            amt = _dec(m.group(2))
+            amt = Decimal(m.group(2))
             blinds_posted[uname] = "ante"
             action_order += 1
             actions_by_street["preflop"].append({
@@ -699,7 +646,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         m = RE_SMALL_BLIND.match(line)
         if m:
             uname = m.group(1)
-            amt = _dec(m.group(2))
+            amt = Decimal(m.group(2))
             sb_player = uname
             blinds_posted[uname] = "sb"
             action_order += 1
@@ -715,7 +662,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         m = RE_BIG_BLIND.match(line)
         if m:
             uname = m.group(1)
-            amt = _dec(m.group(2))
+            amt = Decimal(m.group(2))
             bb_player = uname
             blinds_posted[uname] = "bb"
             action_order += 1
@@ -731,7 +678,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         m = RE_STRADDLE.match(line)
         if m:
             uname = m.group(1)
-            amt = _dec(m.group(2))
+            amt = Decimal(m.group(2))
             blinds_posted[uname] = "straddle"
             action_order += 1
             actions_by_street["preflop"].append({
@@ -746,7 +693,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         # Uncalled bet
         m = RE_UNCALLED.match(line)
         if m:
-            amt = _dec(m.group(1))
+            amt = Decimal(m.group(1))
             uname = m.group(2).strip()
             uncalled_returns[uname] = uncalled_returns.get(uname, _ZERO) + amt
             continue
@@ -806,7 +753,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         m = RE_CALL.match(line)
         if m:
             uname = m.group(1)
-            amt = _dec(m.group(2))
+            amt = Decimal(m.group(2))
             if uname in username_to_info:
                 action_order += 1
                 actions_by_street[current_street].append({
@@ -821,7 +768,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         m = RE_BET.match(line)
         if m:
             uname = m.group(1)
-            amt = _dec(m.group(2))
+            amt = Decimal(m.group(2))
             if uname in username_to_info:
                 action_order += 1
                 actions_by_street[current_street].append({
@@ -836,7 +783,7 @@ def parse_hand_history(hand_text: str) -> ParsedHand:
         m = RE_RAISE.match(line)
         if m:
             uname = m.group(1)
-            raise_to = _dec(m.group(3))  # GGPoker shows raise TO amount
+            raise_to = Decimal(m.group(3))  # GGPoker shows raise TO amount
             if uname in username_to_info:
                 action_order += 1
                 actions_by_street[current_street].append({

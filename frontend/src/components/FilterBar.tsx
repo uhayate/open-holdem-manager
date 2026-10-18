@@ -28,7 +28,6 @@ import {
 const GAME_MODE_LABELS: Record<string, string> = {
   '': 'Regular',
   'Fast Fold': 'Fast Fold',
-  'MTT': 'MTT',
 };
 
 export interface CheckpointItem {
@@ -42,7 +41,7 @@ interface FilterBarProps {
   stakes?: string;
   onStakesChange?: (v: string) => void;
   gameMode?: string;
-  onGameModeChange?: (v: string | undefined) => void;
+  onGameModeChange?: (v: string) => void;
   dateFrom?: string;
   onDateFromChange?: (v: string) => void;
   dateTo?: string;
@@ -137,12 +136,9 @@ export default function FilterBar({
 
   const hasMultipleModes = filterOptions?.game_modes && filterOptions.game_modes.length > 1;
 
-  // Three states, deliberately distinct: `undefined` = no filter (All),
-  // `''` = the Regular cash mode, any other string = that mode. Collapsing
-  // undefined and '' made "Regular" filter on the literal "__reg__" and
-  // return nothing.
-  const gameModeValue =
-    gameMode === undefined ? '__all__' : gameMode === '' ? '__reg__' : gameMode;
+  // "__all__" means no filter; gameMode prop is "" when not filtering,
+  // but "" is also a valid game_mode value (Regular). We use "__all__" as the sentinel.
+  const gameModeValue = gameMode === undefined || gameMode === '' ? '__all__' : gameMode;
 
   // Sort checkpoints by checkpoint_at descending
   const sortedCheckpoints = checkpoints
@@ -218,9 +214,7 @@ export default function FilterBar({
           {showGameMode && hasMultipleModes && (
             <Select
               value={gameModeValue}
-              onValueChange={(v) =>
-                onGameModeChange?.(v === '__all__' ? undefined : v === '__reg__' ? '' : v)
-              }
+              onValueChange={(v) => onGameModeChange?.(v === '__all__' ? '' : v)}
             >
               <SelectTrigger className="w-[130px] h-8 text-sm">
                 <SelectValue placeholder="All Modes" />

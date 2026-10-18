@@ -54,7 +54,7 @@ export default function ComparePage() {
 
   // Shared filters
   const [stakes, setStakes] = useState('');
-  const [gameMode, setGameMode] = useState<string | undefined>(undefined);
+  const [gameMode, setGameMode] = useState('');
 
   // Checkpoint quick-select for periods
   const sortedCheckpoints = useMemo(
@@ -89,7 +89,7 @@ export default function ComparePage() {
     const base = {
       mode,
       stakes: stakes || undefined,
-      game_mode: gameMode,
+      game_mode: gameMode || undefined,
     };
     if (mode === 'periods') {
       return {
@@ -164,10 +164,8 @@ export default function ComparePage() {
           )}
           {filterOpts && filterOpts.game_modes.length > 1 && (
             <Select
-              value={gameMode === undefined ? '__all__' : gameMode === '' ? '__reg__' : gameMode}
-              onValueChange={(v) =>
-                setGameMode(v === '__all__' ? undefined : v === '__reg__' ? '' : v)
-              }
+              value={gameMode || '__all__'}
+              onValueChange={(v) => setGameMode(v === '__all__' ? '' : v)}
             >
               <SelectTrigger className="w-[130px] h-8 text-sm">
                 <SelectValue placeholder="All Modes" />

@@ -101,7 +101,7 @@ const COLOR_OPTIONS: { value: ColorBy; label: string }[] = [
 export default function RangePage() {
   const [position, setPosition] = useState('All');
   const [stakes, setStakes] = useState('');
-  const [gameMode, setGameMode] = useState<string | undefined>(undefined);
+  const [gameMode, setGameMode] = useState('');
   const [colorBy, setColorBy] = useState<ColorBy>('bb100');
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -113,7 +113,7 @@ export default function RangePage() {
   const rangeParams = useMemo(() => ({
     position: position !== 'All' ? position : undefined,
     stakes: stakes || undefined,
-    game_mode: gameMode,
+    game_mode: gameMode || undefined,
   }), [position, stakes, gameMode]);
 
   const { data, isPending: loading } = useQuery({

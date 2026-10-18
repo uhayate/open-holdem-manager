@@ -555,22 +555,15 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
     # Migration for board_cards table
     _add_missing_columns(conn, "board_cards", [("board_number", "INTEGER DEFAULT 1")])
 
-    # Backfill game_mode from the hand ID prefix. Normalise unknown values
-    # FIRST, then fill only the ones that are still blank — running the "not in
-    # the known list" sweep last would erase every mode added after this
-    # migration was written (it wiped all tournament hands on the next launch).
+    # Backfill game_mode: RC* hands → Fast Fold, everything else → ''
     try:
         conn.execute("""
-            UPDATE hands SET game_mode = ''
-            WHERE game_mode NOT IN ('', 'Fast Fold', 'MTT')
-        """)
-        conn.execute("""
             UPDATE hands SET game_mode = 'Fast Fold'
-            WHERE game_mode = '' AND id LIKE 'RC%'
+            WHERE game_mode != 'Fast Fold' AND id LIKE 'RC%'
         """)
         conn.execute("""
-            UPDATE hands SET game_mode = 'MTT'
-            WHERE game_mode = '' AND id LIKE 'TM%'
+            UPDATE hands SET game_mode = ''
+            WHERE game_mode NOT IN ('', 'Fast Fold')
         """)
     except Exception:
         pass

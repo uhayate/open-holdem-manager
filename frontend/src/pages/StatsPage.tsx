@@ -56,7 +56,7 @@ function StatsListView() {
 
   // Filters
   const [stakes, setStakes] = useState<string>('');
-  const [gameMode, setGameMode] = useState<string | undefined>(undefined);
+  const [gameMode, setGameMode] = useState<string>('');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [activePreset, setActivePreset] = useState<DatePreset>('all');
@@ -75,7 +75,7 @@ function StatsListView() {
   const lastNParsed = debouncedLastN ? parseInt(debouncedLastN, 10) : undefined;
   const filterParams = useMemo(() => ({
     stakes: stakes || undefined,
-    game_mode: gameMode,
+    game_mode: gameMode || undefined,
     date_from: dateFrom || undefined,
     date_to: dateTo || undefined,
     last_n: lastNParsed && lastNParsed > 0 ? lastNParsed : undefined,
@@ -109,7 +109,7 @@ function StatsListView() {
     const params = new URLSearchParams();
     if (position) params.set('pos', position);
     if (stakes) params.set('stakes', stakes);
-    if (gameMode !== undefined) params.set('game_mode', gameMode);
+    if (gameMode) params.set('game_mode', gameMode);
     if (dateFrom) params.set('date_from', dateFrom);
     if (dateTo) params.set('date_to', dateTo);
     if (debouncedLastN) params.set('last_n', debouncedLastN);

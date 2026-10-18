@@ -180,7 +180,7 @@ export default function GraphPage() {
 
   // Filters
   const [stakes, setStakes] = useState<string>('');
-  const [gameMode, setGameMode] = useState<string | undefined>(undefined);
+  const [gameMode, setGameMode] = useState<string>('');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [activePreset, setActivePreset] = useState<DatePreset>('all');
@@ -222,7 +222,7 @@ export default function GraphPage() {
   const lastNParsed = debouncedLastN ? parseInt(debouncedLastN, 10) : undefined;
   const filterParams = useMemo(() => ({
     stakes: stakes || undefined,
-    game_mode: gameMode,
+    game_mode: gameMode || undefined,
     date_from: dateFrom || undefined,
     date_to: dateTo || undefined,
     last_n: lastNParsed && lastNParsed > 0 ? lastNParsed : undefined,

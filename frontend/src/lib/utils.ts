@@ -10,9 +10,6 @@ export function cn(...inputs: ClassValue[]) {
  * Falls back to the original string if parsing fails.
  */
 export function formatStakes(stakes: string): string {
-  // Tournament levels are chips, not currency — "MTT 350/700" must not be
-  // turned into a NL cash label.
-  if (/^MTT /.test(stakes)) return stakes.slice(4) + ' (MTT)';
   const m = stakes.match(/\$?([\d.]+)\/\$?([\d.]+)/);
   if (!m) return stakes;
   const bb = parseFloat(m[2]);
