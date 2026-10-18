@@ -62,7 +62,7 @@
 ## 状态
 - 用户装的是本 fork 构建（`%LOCALAPPDATA%\Programs\Open Holdem Manager\`），**版本号仍是 0.0.10**；改源码**必须重装** `release/*Setup.exe`。
 - **关掉运行中实例**：`netstat -ano | grep LISTENING | grep <ohm-backend-pid>` 找端口 → `curl -X POST --noproxy '*' http://127.0.0.1:<port>/api/shutdown`（**永不 taskkill**）。
-- 真实数据 `%APPDATA%\open-holdem-manager\data\poker.duckdb`，运行时独占锁定。现 **9,132 手 / 95MB**（全部 6max，2NL Fast Fold，1bb=$0.02）；GG 自带工具另有 **10,548 手** —— **两个数据源别混用**。**hero `player_id=2037`**。`players` 表的用户名列叫 **`username`**，不是 `name`。`workspaces` 表**没有** `hero_player_id`，只有 `hero_username`/`hero_site`；找 hero 直接 `SELECT id FROM players WHERE username='Hero'`。
+- 真实数据 `%APPDATA%\open-holdem-manager\data\poker.duckdb`，运行时独占锁定。现 **26,062 手 / 193MB**（全部 6max，2NL，1bb=$0.02；`Fast Fold` 26054 + 常规 8）。**hero 实际战绩 = −1888.2 bb / −40.9 USD，bb/100 −7.25** —— 这是他真实输的，**不要当成 bug 去"修"**（2026-10-18 我一度以为是口径坏了，被他纠正：那 16,930 手是他自己新导的 cash 数据，10-12 单日就 −711.5 bb）。**hero `player_id=2037`**。`players` 表的用户名列叫 **`username`**，不是 `name`。`workspaces` 表**没有** `hero_player_id`，只有 `hero_username`/`hero_site`；找 hero 直接 `SELECT id FROM players WHERE username='Hero'`。
 - **核心恒等式：每手 `sum(won) == -total_fees`**。破了就是有钱凭空产生/消失。写 SQL 一条就能验（残差恰好 0.001 是 `DECIMAL(18,3)` 精度，不是 bug）。**Cash Drop 是 GG 送的钱，必须从收池者的 `won` 里扣**，否则算成利润（曾让 bb/100 从 4.68 虚高到 5.31）。
 
 ## 计算层已核验（2026-10-17，别再重复查）
