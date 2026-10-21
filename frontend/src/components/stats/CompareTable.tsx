@@ -105,9 +105,10 @@ function getDeltaColor(
   delta: number | null,
   benchmark: BenchmarkRange | undefined,
   bValue: number | null,
+  statKey?: string,
 ): ColorClass {
   if (delta === null || !benchmark || bValue === null) return 'text-text-muted';
-  const healthB = getStatHealth(bValue, benchmark, 999);
+  const healthB = getStatHealth(bValue, benchmark, 999, 100, statKey);
   if (healthB.status === 'green') return 'text-green';
   if (healthB.status === 'red') return 'text-red';
   return 'text-yellow';
@@ -121,7 +122,7 @@ function getValueColor(
   if (v === null || !statKey) return 'text-text';
   const benchmark = getBenchmarkForPosition(statKey);
   if (!benchmark) return 'text-text';
-  const health = getStatHealth(v, benchmark, sample);
+  const health = getStatHealth(v, benchmark, sample, 100, statKey);
   if (health.status === 'green') return 'text-green';
   if (health.status === 'red') return 'text-red';
   if (health.status === 'yellow') return 'text-yellow';
@@ -174,7 +175,7 @@ export default function CompareTable({ statsA, statsB, labelA, labelB }: Compare
                     const valB = row.getValue(statsB);
                     const benchmark = row.statKey ? BENCHMARKS[row.statKey]?.total : undefined;
                     const delta = fmtDelta(valA.value, valB.value, row.isAF);
-                    const deltaColor = getDeltaColor(delta.value, benchmark, valB.value);
+                    const deltaColor = getDeltaColor(delta.value, benchmark, valB.value, row.statKey);
                     const lowN = (valA.sample < 50 && valA.sample > 0) || (valB.sample < 50 && valB.sample > 0);
                     const colorA = getValueColor(valA.value, row.statKey, valA.sample);
                     const colorB = getValueColor(valB.value, row.statKey, valB.sample);

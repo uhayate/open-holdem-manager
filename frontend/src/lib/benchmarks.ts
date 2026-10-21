@@ -331,15 +331,39 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
 
 // ── Health computation ───────────────────────────────────────────────
 
+/** Stats whose value is a ratio of actions — (bets+raises)/calls — not a
+ *  percentage of opportunities. H2N defines Aggression exactly this way.
+ *  A binomial confidence interval does not apply to a ratio. */
+const RATIO_STATS = new Set(['af_flop', 'af_turn', 'af_river']);
+
+/** Half-width of the 95% binomial interval, in percentage points. */
+export function statConfidenceWidth(
+  statKey: string | undefined,
+  value: number,
+  sample: number,
+): number {
+  if (statKey && RATIO_STATS.has(statKey)) return 0;
+  const p = value / 100;
+  const variance = (p * (1 - p)) / Math.max(sample, 1);
+  return 1.96 * Math.sqrt(variance) * 100;
+}
+
 /**
  * Yellow zone = 30% of range width outside each boundary.
  * E.g. range [20, 28], width=8, margin=2.4 → yellow below 20 down to 17.6, yellow above 28 up to 30.4
+ *
+ * A value outside the range is only flagged RED when its 95% confidence
+ * interval clears the boundary entirely. With 1,196 showdowns, a 30.8% WTSD
+ * has a ±2.6pp interval that overlaps the 30% ceiling — calling that a leak
+ * is statistically unfounded, so it is capped at yellow. Without this, every
+ * stat past the 100-hand floor turns red on noise alone.
  */
 export function getStatHealth(
   value: number | null | undefined,
   benchmark: BenchmarkRange,
   sample: number,
   minSample = 100,
+  statKey?: string,
 ): StatHealth {
   if (value == null || sample < minSample) return { status: 'neutral' };
 
@@ -350,16 +374,24 @@ export function getStatHealth(
     return { status: 'green' };
   }
 
-  if (value < benchmark.low) {
-    return value >= benchmark.low - margin
-      ? { status: 'yellow', direction: 'low' }
-      : { status: 'red', direction: 'low' };
-  }
+  const direction: 'low' | 'high' = value < benchmark.low ? 'low' : 'high';
 
-  // value > benchmark.high
+  // If the confidence band is wider than twice the tolerance band, the sample
+  // cannot tell this value apart from the target at all — don't colour it.
+  const ci = statConfidenceWidth(statKey, value, sample);
+  if (ci > width * 2) return { status: 'neutral' };
+
+  const overlaps = value + ci >= benchmark.low && value - ci <= benchmark.high;
+  if (overlaps) return { status: 'yellow', direction };
+
+  if (direction === 'low') {
+    return value >= benchmark.low - margin
+      ? { status: 'yellow', direction }
+      : { status: 'red', direction };
+  }
   return value <= benchmark.high + margin
-    ? { status: 'yellow', direction: 'high' }
-    : { status: 'red', direction: 'high' };
+    ? { status: 'yellow', direction }
+    : { status: 'red', direction };
 }
 
 export function getBenchmarkForPosition(
@@ -413,7 +445,7 @@ export function computeLeaks(stats: HeroStats, minSample = 200): Leak[] {
     if (!sv || sv.value == null || sv.sample < minSample) continue;
 
     const benchmark = posBenchmarks.total;
-    const health = getStatHealth(sv.value, benchmark, sv.sample, minSample);
+    const health = getStatHealth(sv.value, benchmark, sv.sample, minSample, key);
     if (health.status !== 'red' || !health.direction) continue;
 
     const midpoint = (benchmark.low + benchmark.high) / 2;

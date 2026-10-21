@@ -90,7 +90,7 @@ export function fmtStat(
   if (statKey) {
     const benchmark = getBenchmarkForPosition(statKey, position);
     if (benchmark) {
-      const health = getStatHealth(v, benchmark, sv.sample);
+      const health = getStatHealth(v, benchmark, sv.sample, 100, statKey);
       return { text: formatted, color: healthToColor(health), health, benchmark };
     }
   }
