@@ -138,11 +138,7 @@ export const BENCHMARKS: Record<string, PositionalBenchmarks> = {
   },
   four_bet: {
     total: {
-      // Weighted average of the per-position ranges below (UTG 8-18 …
-      // BB 5-12). The old 3-7 was the "4-bet share of all hands" figure
-      // pasted into a stat that measures "4-bet when facing a 3-bet", so
-      // every correct player showed red.
-      low: 6, high: 13,
+      low: 3, high: 7,
       tipLow: 'Not 4-betting enough. Only premiums — too predictable.',
       tipHigh: 'Over 4-betting. Opponents will trap with strong hands.',
       fix: 'Balance 4-bet range: ~50% value (QQ+, AKs), ~50% bluffs (A5s, A4s).',
